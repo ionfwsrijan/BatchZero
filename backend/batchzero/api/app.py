@@ -12,9 +12,11 @@ import asyncio
 import json
 from typing import Annotated, Any, AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
+from redis.exceptions import RedisError
 from sse_starlette.sse import EventSourceResponse
 
 from .. import tools
@@ -128,6 +130,25 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(RedisError)
+async def graph_unavailable(_request: Request, exc: RedisError) -> JSONResponse:
+    """Map a graph outage to 503 (retryable) instead of an opaque 500.
+
+    FalkorDB speaks the Redis protocol, so a dead or still-starting engine shows
+    up as a ``RedisError`` deep inside a query. Callers get a stable JSON shape
+    plus ``Retry-After`` rather than Starlette's generic internal error.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "graph database unavailable",
+            "error": type(exc).__name__,
+            "hint": "check /api/ready and retry once FalkorDB answers",
+        },
+        headers={"Retry-After": "5"},
+    )
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     """Liveness probe: always 200 so an orchestrator does not restart on a blink.
@@ -150,6 +171,8 @@ def ready(response: Response) -> dict[str, Any]:
     """Readiness probe: 503 while FalkorDB is unreachable."""
     up, graph = _probe()
     response.status_code = 200 if up else 503
+    if not up:
+        response.headers["Retry-After"] = "5"
     return {"ready": up, "falkordb": up, "graph": graph}
 
 
@@ -166,7 +189,7 @@ def config() -> dict[str, Any]:
 
 
 @app.get("/api/cases")
-def cases(pathogen: str = Query("Salmonella")) -> dict[str, Any]:
+def cases(pathogen: str = Query("Salmonella", min_length=1, max_length=64)) -> dict[str, Any]:
     res = epidemiology.list_recent_cases(_graph(), pathogen=pathogen)
     return {"pathogen": pathogen, "count": len(res.rows), "rows": res.rows, "ms": res.ms}
 

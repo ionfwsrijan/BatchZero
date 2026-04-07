@@ -1,7 +1,7 @@
 # BatchZero
 
 [![CI](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml/badge.svg)](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)](backend/tests)
+[![tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20SSE-009688)](backend/batchzero/api/app.py)
 [![React](https://img.shields.io/badge/UI-React%20%2B%20cytoscape-61dafb)](frontend)
@@ -39,7 +39,7 @@ behind it.
 | **Graph** | 26 labels · 40 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
 | **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
 | **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
-| **Tests** | 48 tests offline + benchmark gate in CI against a live FalkorDB |
+| **Tests** | 49 tests offline + benchmark gate in CI against a live FalkorDB |
 
 ---
 
@@ -355,7 +355,7 @@ to wake (it reseeds itself on boot).
 - **Lint like CI**: `make lint` (`ruff check .`)
 - **Live LLM mode**: `python -m batchzero.demo.replay --live` (falls back gracefully on 429)
 - **Run full API + UI**: `python -m batchzero.api.app` (`http://localhost:8000`)
-- **All tests**: `pytest -q` (48 passing, offline)
+- **All tests**: `pytest -q` (49 passing, offline)
 
 **Read next:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) (judge guide + rubric
 map) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
@@ -403,7 +403,9 @@ endpoints accept `?tenant=` (or `tenant` in the body); names must match
 
 Request bodies are bounded (`message` ≤ 4000 chars, `title` ≤ 200) and the
 `roles` list is validated against the orchestrator's known roles, so a typo
-returns `422` instead of silently running a partial investigation.
+returns `422` instead of silently running a partial investigation. A graph
+outage is reported as `503` with a `Retry-After: 5` header, never a generic
+`500`, so clients can distinguish "try again shortly" from a real bug.
 
 ---
 
@@ -423,7 +425,7 @@ pytest -q
 | `test_db.py` | result normalization: nodes/edges and temporal values become JSON-friendly data |
 | `test_isolation.py` | cross-tenant writes leave the other graph untouched; seeding is deterministic |
 
-All 48 tests run offline against a live FalkorDB (the LLM is pinned to the
+All 49 tests run offline against a live FalkorDB (the LLM is pinned to the
 deterministic plan). CI first runs `ruff check .`, then the suite on **Python
 3.11 and 3.12** (the pyproject floor and the deploy image), and finally
 `--benchmark 2` as a gate: it fails the build if a run does not confirm
@@ -443,6 +445,7 @@ benchmark gate catches answer regressions, not just crashes.
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `Connection refused` when seeding / testing | FalkorDB is not up yet | `docker compose up -d falkordb`, wait for `redis-cli ping` |
+| API returns `503 {"detail":"graph database unavailable"}` | FalkorDB is down or still starting | check `/api/ready`; the response carries `Retry-After: 5` |
 | `port is already allocated` | Another process owns 6379/3000 | stop it, or change the host side of the port mapping |
 | Tests pass but the UI shows stale data | old tenant from an earlier run | `python -m batchzero.seed --reset` |
 | Hosted demo hangs ~60s on first request | free Render instance slept | wait for the cold start; it reseeds on boot |

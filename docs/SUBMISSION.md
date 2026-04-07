@@ -57,7 +57,7 @@ make verify                               # CI's functional gate: seed + tests +
 | **Reproducible demo** | Deterministic plan drives the same loop; no key required | `agent/scripts.py`, `tests/conftest.py` pins `LLM_PROVIDER=mock` |
 | **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
-| **Tests** | 48 tests offline against a live FalkorDB, plus a benchmark gate in CI | `backend/tests/` |
+| **Tests** | 49 tests offline against a live FalkorDB, plus a benchmark gate in CI | `backend/tests/` |
 | **Live deployment** | Running at <https://batchzero.onrender.com/> — one container (FalkorDB + API + built UI), free Render web service from `render.yaml` | `deploy/Dockerfile`, `deploy/start.sh`, `render.yaml` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
 | **Explainable output** | Provenance chain on every claim | `Hypothesis→Evidence→ToolCall→Session` |
@@ -205,7 +205,7 @@ recall is filed.
 | Recall scope | `['MG-4417']` |
 | Tasks created | 3 (inspection + follow-up) |
 | Fixture size | 134 nodes / 197 edges |
-| Tests | 48 passing, plus a CI benchmark gate |
+| Tests | 49 passing, plus a CI benchmark gate |
 | Per-run latency (deterministic, full 4 roles) | 4.9 – 5.5 s |
 
 ---

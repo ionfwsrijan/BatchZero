@@ -44,6 +44,8 @@ def test_invalid_tenant_and_traversal_params_are_rejected():
     assert graph.status_code == 422
     graph = client.get("/api/investigations/INV-X/graph", params={"tenant": TENANT, "limit": 5000})
     assert graph.status_code == 422
+    # The pathogen label is interpolated into the case query: bound it too.
+    assert client.get("/api/cases", params={"pathogen": ""}).status_code == 422
 
 
 def test_cases_and_search():
@@ -135,4 +137,20 @@ def test_health_is_liveness_and_ready_is_readiness(monkeypatch):
 
     ready = client.get("/api/ready")
     assert ready.status_code == 503
+    assert ready.headers["Retry-After"] == "5"
     assert ready.json() == {"ready": False, "falkordb": False, "graph": "pmph_ops"}
+
+
+def test_graph_outage_returns_503_not_500(monkeypatch):
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    def boom(tenant=None):
+        raise RedisConnectionError("connection refused")
+
+    monkeypatch.setattr("batchzero.api.app._graph", boom)
+    resp = client.get("/api/config")
+    assert resp.status_code == 503
+    assert resp.headers["Retry-After"] == "5"
+    body = resp.json()
+    assert body["detail"] == "graph database unavailable"
+    assert body["error"] == "ConnectionError"
