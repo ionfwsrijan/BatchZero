@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getJSON, streamSSE } from "./api.js";
 import AgentStream from "./components/AgentStream.jsx";
 import GraphCanvas from "./components/GraphCanvas.jsx";
@@ -29,6 +29,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(() => window.localStorage.getItem("batchzero-theme-v3") || "light");
   const [vizTab, setVizTab] = useState("network");
+  const streamRef = useRef(null);
 
   const roleLabels = useMemo(() => Object.fromEntries((config?.roles || []).map((role) => [role.key, role.label])), [config]);
   const incident = detail?.investigation || detail || {};
@@ -46,6 +47,10 @@ export default function App() {
   const providerLabel = config?.provider === "mock" ? "Demo environment" : "Live model";
 
   useEffect(() => { window.localStorage.setItem("batchzero-theme-v3", theme); }, [theme]);
+
+  // Cancel an in-flight SSE stream if the workspace unmounts, so React does not
+  // receive events (and attempt state updates) after teardown.
+  useEffect(() => () => streamRef.current?.abort(), []);
 
   const loadDetail = useCallback(async (id, currentTenant = tenant) => {
     setDetail(await getJSON(`/investigations/${id}`, { tenant: currentTenant }));
@@ -104,6 +109,8 @@ export default function App() {
     setEvents([]);
     setRunning(true);
     let currentId = invId;
+    const controller = new AbortController();
+    streamRef.current = controller;
     try {
       await streamSSE("/investigations/stream", { tenant }, (evt) => {
         setEvents((prev) => [...prev, evt]);
@@ -111,7 +118,7 @@ export default function App() {
           currentId = evt.inv_id;
           setInvId(evt.inv_id);
         }
-      });
+      }, controller.signal);
       if (currentId) {
         await Promise.all([loadDetail(currentId), loadGraph(currentId)]);
         const list = await getJSON("/investigations", { tenant });
@@ -120,6 +127,7 @@ export default function App() {
     } catch (e) {
       if (e.name !== "AbortError") setError(String(e.message || e));
     } finally {
+      if (streamRef.current === controller) streamRef.current = null;
       setRunning(false);
     }
   };
@@ -129,12 +137,15 @@ export default function App() {
     const message = followup.trim();
     setFollowup("");
     setRunning(true);
+    const controller = new AbortController();
+    streamRef.current = controller;
     try {
-      await streamSSE(`/investigations/${invId}/chat/stream`, { message, tenant }, (evt) => setEvents((prev) => [...prev, evt]));
+      await streamSSE(`/investigations/${invId}/chat/stream`, { message, tenant }, (evt) => setEvents((prev) => [...prev, evt]), controller.signal);
       await Promise.all([loadDetail(invId), loadGraph(invId)]);
     } catch (e) {
-      setError(String(e.message || e));
+      if (e.name !== "AbortError") setError(String(e.message || e));
     } finally {
+      if (streamRef.current === controller) streamRef.current = null;
       setRunning(false);
     }
   };
@@ -177,7 +188,7 @@ export default function App() {
           <div className="topbar-context"><span className="context-divider" /><span className="live-indicator" /><span>Response center</span><span className="context-slash">/</span><strong>Investigation workspace</strong></div>
           <div className="top-actions">
             {config && <Badge variant={config.provider === "mock" ? "warning" : "success"} className="provider-tag"><span className="provider-dot" />{providerLabel}</Badge>}
-            <label className="tenant-control"><span>WORKSPACE</span><span className="tenant-select-wrap"><select value={tenant} onChange={(e) => changeTenant(e.target.value)} aria-label="Select workspace"><option value="pmph_ops">Port Meridian PH</option><option value="training_academy">Training Academy</option></select><ChevronDown size={14} /></span></label>
+            <label className="tenant-control"><span>WORKSPACE</span><span className="tenant-select-wrap"><select value={tenant} onChange={(e) => changeTenant(e.target.value)} disabled={running} aria-label="Select workspace"><option value="pmph_ops">Port Meridian PH</option><option value="training_academy">Training Academy</option></select><ChevronDown size={14} /></span></label>
             <Button variant="outline" size="icon" className="theme-toggle" onClick={() => setTheme((value) => value === "light" ? "dark" : "light")} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
               {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
             </Button>
@@ -189,7 +200,7 @@ export default function App() {
           </div>
         </header>
 
-        {error && <div className="error-banner"><span>!</span>{error}</div>}
+        {error && <div className="error-banner" role="alert"><span aria-hidden="true">!</span><p>{error}</p><Button variant="ghost" size="icon" className="error-dismiss" onClick={() => setError("")} aria-label="Dismiss error"><X size={14} /></Button></div>}
 
         <div className="workspace">
           <motion.aside className="activity-rail" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .38 }}>

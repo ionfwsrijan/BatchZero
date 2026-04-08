@@ -1,4 +1,29 @@
 const BASE = "/api";
+const MAX_ERROR_CHARS = 300;
+
+// FastAPI returns `{"detail": ...}` (a string for HTTPException, a list for
+// validation errors), but proxies and cold starts can return HTML. Normalize
+// both into one short line instead of dumping a whole page into the banner.
+async function responseError(res) {
+  let body = "";
+  try {
+    body = await res.text();
+  } catch {
+    // Body already consumed/unreadable: fall back to the status line below.
+  }
+  let detail = body;
+  try {
+    const parsed = JSON.parse(body);
+    const value = parsed?.detail ?? parsed?.error ?? body;
+    detail = Array.isArray(value)
+      ? value.map((item) => item?.msg || JSON.stringify(item)).join("; ")
+      : value;
+  } catch {
+    // Plain text or HTML: keep it, the caller truncates it.
+  }
+  const message = String(detail || res.statusText || "request failed").trim();
+  return `${res.status} ${message.length > MAX_ERROR_CHARS ? `${message.slice(0, MAX_ERROR_CHARS)}…` : message}`;
+}
 
 export async function getJSON(path, params) {
   const url = new URL(BASE + path, window.location.origin);
@@ -8,7 +33,7 @@ export async function getJSON(path, params) {
     }
   }
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(await responseError(res));
   return res.json();
 }
 
@@ -18,7 +43,7 @@ export async function postJSON(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(await responseError(res));
   return res.json();
 }
 
@@ -31,7 +56,8 @@ export async function streamSSE(path, body, onEvent, signal) {
     body: JSON.stringify(body || {}),
     signal,
   });
-  if (!res.ok || !res.body) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(await responseError(res));
+  if (!res.body) throw new Error(`${res.status} stream closed before any events arrived`);
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
