@@ -293,14 +293,6 @@ batchzero/
 
 ---
 
-## AI-assistance disclosure
-
-In line with the hackathon rules: this project was built with AI coding
-assistance. All architecture, the FalkorDB data model, the investigation
-protocol, and the correctness tests were directed and reviewed by the team;
-generated code was verified against a live FalkorDB by the test suite and the
-reproducible benchmark.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
