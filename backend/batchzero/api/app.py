@@ -204,3 +204,18 @@ def main() -> None:
     import uvicorn
 
     uvicorn.run("batchzero.api.app:app", host=settings.api_host, port=settings.api_port)
+
+
+def _mount_ui() -> None:
+    """Serve the built React frontend at / when it has been compiled."""
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    if dist.exists():
+        app.mount("/", StaticFiles(directory=str(dist), html=True), name="ui")
+
+
+_mount_ui()
+
