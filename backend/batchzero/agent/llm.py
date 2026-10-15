@@ -52,7 +52,8 @@ class GroqLLM(BaseLLM):
         self.model = model or settings.groq_model
         self._client = AsyncOpenAI(
             api_key=api_key or settings.groq_api_key,
-            base_url=base_url or settings.groq_base_url,
+            base_url=base_url or settings.openai_base_url,
+            max_retries=1,  # free-tier 429s should surface fast; FallbackLLM takes over
         )
 
     async def complete(self, messages, tools):
@@ -81,6 +82,37 @@ class GroqLLM(BaseLLM):
                 args = {}
             calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
         return LLMResponse(content=msg.content, tool_calls=calls, model=self.model)
+
+
+# ------------------------------------------------------------------- hybrid
+class FallbackLLM(BaseLLM):
+    """Live-then-deterministic: use the provider until it fails, then continue.
+
+    Groq's free tier caps tokens-per-minute, so a long tool loop can hit a 429
+    mid-run. Rather than break a live demo, this wrapper transparently switches
+    to the deterministic role plan for the rest of the session — state carries
+    over because the plan derives its progress from the tool results already in
+    the conversation.
+    """
+
+    provider = "groq->mock"
+
+    def __init__(self, primary: BaseLLM, fallback: BaseLLM):
+        self._primary: BaseLLM | None = primary
+        self._fallback = fallback
+        self.model = primary.model
+
+    async def complete(self, messages, tools):
+        if self._primary is not None:
+            try:
+                return await self._primary.complete(messages, tools)
+            except Exception as exc:  # noqa: BLE001 - any provider failure
+                import sys
+
+                print(f"[llm] live provider unavailable ({type(exc).__name__}); "
+                      f"continuing on the deterministic plan", file=sys.stderr)
+                self._primary = None
+        return await self._fallback.complete(messages, tools)
 
 
 # --------------------------------------------------------------------- mock
@@ -162,18 +194,21 @@ def make_llm(
     briefs: dict[str, str] | None = None,
     provider: str | None = None,
 ) -> BaseLLM:
-    """Groq when a key is configured, otherwise the deterministic role plan."""
+    """Groq when a key is configured (with a deterministic safety net), else the plan."""
     settings = get_settings()
     provider = (provider or settings.llm_provider).lower()
-    if provider == "groq" and settings.groq_api_key:
-        return GroqLLM()
     from .scripts import role_plan
 
-    return role_plan(role, inv_id, briefs or {})
+    plan = role_plan(role, inv_id, briefs or {})
+    if provider == "groq" and settings.groq_api_key:
+        return FallbackLLM(GroqLLM(), plan)
+
+    return plan
 
 
 __all__ = [
     "BaseLLM",
+    "FallbackLLM",
     "GroqLLM",
     "LLMResponse",
     "MockLLM",

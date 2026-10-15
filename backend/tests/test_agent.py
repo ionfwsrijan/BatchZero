@@ -93,3 +93,36 @@ def test_followup_router_picks_the_right_role():
     assert route_role("walk the cold chain for this lot") == "tracer"
     assert route_role("what did the genomics say?") == "cluster"
     assert route_role("compile the decision brief and the institutional fact") == "briefing"
+
+
+def test_make_llm_forces_plan_for_mock_provider():
+    from batchzero.agent.llm import MockLLM, make_llm
+
+    assert isinstance(make_llm("intake", "INV-X", {}, provider="mock"), MockLLM)
+
+
+def test_live_llm_falls_back_to_plan_on_rate_limit():
+    from batchzero.agent.llm import BaseLLM, FallbackLLM, MockLLM, ScriptStep
+
+    class Boom(BaseLLM):
+        provider = "boom"
+        model = "boom"
+
+        async def complete(self, messages, tools):
+            raise RuntimeError("429 rate limited")
+
+    tools = [{"name": "list_recent_cases", "description": "d",
+              "inputSchema": {"type": "object", "properties": {}}}]
+    plan = MockLLM(script=[ScriptStep(tool="list_recent_cases", args={})], final="done")
+    hybrid = FallbackLLM(Boom(), plan)
+
+    first = asyncio.run(hybrid.complete([{"role": "user", "content": "go"}], tools))
+    assert first.tool_calls and first.tool_calls[0].name == "list_recent_cases"
+
+    second = asyncio.run(hybrid.complete(
+        [{"role": "user", "content": "go"},
+         {"role": "tool", "tool_call_id": "x",
+          "content": '{"tool": "list_recent_cases", "ok": true}'}],
+        tools,
+    ))
+    assert second.content == "done"

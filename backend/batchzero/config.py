@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # --- LLM ---
     llm_provider: str = "mock"  # groq | openai | mock
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     openai_base_url: str = "https://api.groq.com/openai/v1"
     openai_api_key: str | None = None
     llm_temperature: float = 0.1

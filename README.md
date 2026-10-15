@@ -233,11 +233,14 @@ Copy `.env.example` to `.env`. To use a live LLM:
 ```
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_...
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-With no key the provider silently resolves to `mock` (deterministic plan), so
-the project is fully runnable offline.
+The agent runs on Groq's OpenAI-compatible endpoint and falls back to the
+deterministic plan automatically if the provider errors (e.g. a free-tier
+`429`), so a live run is never interrupted. With no key configured,
+`LLM_PROVIDER` resolves to `mock` and the deterministic plan drives the loop —
+the same MCP tool calls against the same graph, fully offline.
 
 ---
 
@@ -255,7 +258,8 @@ pytest -q
 | `test_agent.py` | the full four-role run: main hypothesis confirmed, decoy refuted, evidence tool-attributed, recall + tasks filed |
 | `test_api.py` | read endpoints + the SSE investigation stream |
 
-All 32 tests run against a live FalkorDB.
+All 36 tests run offline against a live FalkorDB (the LLM is pinned to the
+deterministic plan).
 
 ---
 

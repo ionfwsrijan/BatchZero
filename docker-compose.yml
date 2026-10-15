@@ -26,7 +26,7 @@ services:
       FALKORDB_PORT: "6379"
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       TENANT_GRAPH: pmph_ops
       TRAINING_TENANT_GRAPH: training_academy
     depends_on:

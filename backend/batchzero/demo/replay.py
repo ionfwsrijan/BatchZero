@@ -16,8 +16,18 @@ import time
 from typing import Any
 
 from ..agent import ROLE_LABEL, run_investigation
+from ..agent.llm import BaseLLM, make_llm
 from ..db import GraphDB
 from ..seed import seed_ops_tenant
+
+
+def _llm_factory(live: bool):
+    """Deterministic by default; the live provider only when explicitly asked."""
+
+    def factory(role: str, inv_id: str, briefs: dict[str, str]) -> BaseLLM:
+        return make_llm(role, inv_id, briefs, provider="groq" if live else "mock")
+
+    return factory
 
 
 def _banner() -> None:
@@ -41,13 +51,13 @@ async def _emit(event: dict[str, Any]) -> None:
         print(f"   ↳ brief ready ({event['tool_calls']} tool calls)")
 
 
-async def replay(tenant: str, fresh: bool = True) -> dict[str, Any]:
+async def replay(tenant: str, fresh: bool = True, live: bool = False) -> dict[str, Any]:
     db = GraphDB(tenant)
     if fresh:
         db.delete_graph()
     seed_ops_tenant(db)
     _banner()
-    run = await run_investigation(db, tenant=tenant, emit=_emit)
+    run = await run_investigation(db, tenant=tenant, emit=_emit, llm_factory=_llm_factory(live))
     print("\n" + "=" * 64)
     print("  BRIEF — Briefing Officer")
     print("=" * 64)
@@ -61,7 +71,7 @@ async def run_once(tenant: str, fresh: bool = True) -> tuple[Any, float]:
         db.delete_graph()
     seed_ops_tenant(db)
     start = time.perf_counter()
-    run = await run_investigation(db, tenant=tenant)
+    run = await run_investigation(db, tenant=tenant, llm_factory=_llm_factory(False))
     return run, (time.perf_counter() - start) * 1000.0
 
 
@@ -93,12 +103,13 @@ def main() -> None:
     parser.add_argument("--tenant", default="pmph_ops")
     parser.add_argument("--benchmark", type=int, default=0, help="run N times and report metrics")
     parser.add_argument("--keep", action="store_true", help="do not reset the graph first")
+    parser.add_argument("--live", action="store_true", help="use the live LLM instead of the plan")
     args = parser.parse_args()
 
     if args.benchmark:
         asyncio.run(benchmark(args.tenant, args.benchmark))
     else:
-        asyncio.run(replay(args.tenant, fresh=not args.keep))
+        asyncio.run(replay(args.tenant, fresh=not args.keep, live=args.live))
 
 
 if __name__ == "__main__":

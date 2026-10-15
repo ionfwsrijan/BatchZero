@@ -7,10 +7,16 @@ than the live ``pmph_ops`` graph that other tests add investigations to.
 
 from __future__ import annotations
 
-import pytest
+import os
 
-from batchzero.db import GraphDB
-from batchzero.seed import seed_ops_tenant
+# Tests must be deterministic and offline: force the mock provider even if a
+# developer's .env points at Groq. Set before importing anything that reads env.
+os.environ["LLM_PROVIDER"] = "mock"
+
+import pytest  # noqa: E402
+
+from batchzero.db import GraphDB  # noqa: E402
+from batchzero.seed import seed_ops_tenant  # noqa: E402
 
 QUERY_TENANT = "batchzero_query_test"
 MCP_TENANT = "batchzero_mcp_test"
