@@ -1,0 +1,41 @@
+[project]
+name = "batchzero"
+version = "0.1.0"
+description = "BatchZero — outbreak source-investigation agent powered by FalkorDB"
+readme = "../README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "falkordb>=1.8.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "mcp>=1.2.0",
+    "openai>=1.50.0",
+    "sse-starlette>=2.1.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+batchzero-api = "batchzero.api.app:main"
+batchzero-mcp = "batchzero.mcp_server:main"
+batchzero-seed = "batchzero.seed:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["batchzero*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
