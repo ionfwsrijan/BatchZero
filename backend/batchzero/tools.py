@@ -343,6 +343,15 @@ def _get_protocol(ctx):
 
 
 @tool(
+    "investigation_report",
+    "Everything on the case file so far: hypothesis-evidence chains, tasks, recalls, sessions and the tool-call trail.",
+    {**_OBJ, "properties": {"inv_id": _str("Investigation id")}, "required": ["inv_id"]},
+)
+def _investigation_report(ctx, inv_id):
+    return {"ok": True, "report": memory.investigation_digest(ctx.db, inv_id)}
+
+
+@tool(
     "current_protocol_step",
     "Where the current agent session is in the protocol, and the next step.",
     {},
@@ -486,6 +495,16 @@ def _set_investigation_stage(ctx, inv_id, stage):
     return {"ok": True, "inv_id": inv_id, "stage": stage}
 
 
+@tool(
+    "set_investigation_summary",
+    "Persist the investigation's executive summary onto the case file.",
+    {**_OBJ, "properties": {"inv_id": _str("Investigation id"), "summary": _str("The executive summary")}, "required": ["inv_id", "summary"]},
+)
+def _set_investigation_summary(ctx, inv_id, summary):
+    actions.set_investigation_summary(ctx.db, inv_id, summary)
+    return {"ok": True, "inv_id": inv_id}
+
+
 # -------------------------------------------------------------- role toolsets
 READ_TOOLS = [
     "list_recent_cases", "epi_curve", "describe_case", "case_exposures", "valid_exposures",
@@ -502,7 +521,8 @@ ROLE_TOOLSETS: dict[str, list[str]] = {
     "intake": [
         "list_recent_cases", "epi_curve", "describe_case", "case_exposures", "valid_exposures",
         "find_common_ingredients", "find_common_facilities", "find_common_suppliers",
-        "cluster_by_exposure", "search_entities", "get_protocol", "current_protocol_step",
+        "cluster_by_exposure", "search_entities", "investigation_report",
+        "get_protocol", "current_protocol_step",
         "open_investigation", "include_cases", "remember_fact", "set_investigation_stage",
     ],
     "cluster": [
@@ -511,7 +531,8 @@ ROLE_TOOLSETS: dict[str, list[str]] = {
         "ingredient_to_lots", "cluster_by_exposure", "temporal_fit",
         "lot_source_ranking", "match_isolates", "trace_supply_chain", "lot_cold_chain",
         "find_chokepoints", "shortest_link",
-        "prior_incidents", "recall_facts", "get_protocol", "current_protocol_step",
+        "prior_incidents", "recall_facts", "investigation_report",
+        "get_protocol", "current_protocol_step",
         "add_hypothesis", "attach_evidence", "update_hypothesis",
     ],
     "tracer": [
@@ -519,15 +540,17 @@ ROLE_TOOLSETS: dict[str, list[str]] = {
         "find_chokepoints", "connected_components", "shortest_link",
         "supplier_profile", "facility_profile", "ingredient_to_lots",
         "lot_source_ranking", "match_isolates", "search_entities", "recall_facts",
-        "prior_incidents", "get_protocol", "current_protocol_step",
+        "prior_incidents", "investigation_report",
+        "get_protocol", "current_protocol_step",
         "add_hypothesis", "attach_evidence", "update_hypothesis", "create_task",
     ],
     "briefing": [
         "list_recent_cases", "epi_curve", "describe_case", "trace_supply_chain",
         "lot_source_ranking", "cold_chain", "supplier_profile", "recall_facts",
-        "prior_incidents", "get_protocol", "current_protocol_step",
+        "prior_incidents", "investigation_report",
+        "get_protocol", "current_protocol_step",
         "create_task", "draft_recall", "remember_fact", "update_hypothesis",
-        "set_investigation_stage",
+        "set_investigation_stage", "set_investigation_summary",
     ],
 }
 
@@ -545,6 +568,9 @@ def execute(ctx: ToolContext, name: str, args: dict[str, Any]) -> dict[str, Any]
         ms = (time.perf_counter() - start) * 1000.0
         return {"ok": False, "tool": name, "error": f"{type(exc).__name__}: {exc}", "ms": round(ms, 3)}
     ms = (time.perf_counter() - start) * 1000.0
+    # Normalize to JSON-safe values (dates -> ISO strings): the MCP transport
+    # serializes this payload, and callers parse it back as JSON.
+    payload = json.loads(json.dumps(payload, default=str))
     summary = payload.get("digest") or json.dumps(payload, default=str)[:800]
     tcid = ctx.log(name, args or {}, summary, ms)
     if isinstance(payload, dict):

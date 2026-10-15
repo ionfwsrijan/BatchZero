@@ -128,6 +128,84 @@ def list_investigations(db: GraphDB) -> QueryOutcome:
     return run_read(db, "investigations", cypher)
 
 
+def investigation_digest(db: GraphDB, inv_id: str) -> dict[str, Any]:
+    """A compact, context-friendly view of an investigation.
+
+    Meant to be handed to the agent (and re-read repeatedly), so it stays small:
+    hypothesis ids/statements/status, evidence summaries, task and recall headers,
+    session/handoff chain, and counters — never the full tool-call firehose.
+    """
+    inv = run_read(
+        db,
+        "investigation header",
+        "MATCH (i:Investigation {inv_id:$inv_id}) "
+        "OPTIONAL MATCH (i)-[:INCLUDES]->(c:Case) "
+        "RETURN i.inv_id AS inv_id, i.title AS title, i.status AS status, "
+        "       i.stage AS stage, i.priority AS priority, i.summary AS summary, "
+        "       count(DISTINCT c) AS cases",
+        {"inv_id": inv_id},
+    ).first() or {"inv_id": inv_id}
+
+    hyps = run_read(
+        db,
+        "hypotheses digest",
+        "MATCH (i:Investigation {inv_id:$inv_id})-[:HAS_HYPOTHESIS]->(h:Hypothesis) "
+        "OPTIONAL MATCH (h)-[:SUPPORTED_BY]->(e:Evidence) "
+        "OPTIONAL MATCH (e)-[:DERIVED_FROM]->(tc:ToolCall) "
+        "WITH h, collect(DISTINCT e) AS es, collect(DISTINCT tc) AS tcs "
+        "OPTIONAL MATCH (h)-[:CONTRADICTED_BY]->(ce:Evidence) "
+        "RETURN h.hyp_id AS hyp_id, h.statement AS statement, h.status AS status, "
+        "       h.confidence AS confidence, size(es) AS support_count, "
+        "       size([x IN tcs WHERE x IS NOT NULL]) AS support_tools, "
+        "       [x IN es WHERE x IS NOT NULL | x.kind] AS support_kinds, "
+        "       count(DISTINCT ce) AS contradict_count, h.created AS created "
+        "ORDER BY created",
+        {"inv_id": inv_id},
+    ).rows
+
+    tasks = run_read(
+        db,
+        "tasks digest",
+        "MATCH (i:Investigation {inv_id:$inv_id})-[:HAS_TASK]->(t:Task) "
+        "OPTIONAL MATCH (t)-[:ASSIGNED_TO]->(p:Person) "
+        "RETURN t.task_id AS task_id, t.type AS type, t.instructions AS instructions, "
+        "       t.status AS status, p.name AS assigned_to, t.created AS created "
+        "ORDER BY created",
+        {"inv_id": inv_id},
+    ).rows
+
+    recalls = run_read(
+        db,
+        "recalls digest",
+        "MATCH (i:Investigation {inv_id:$inv_id})-[:HAS_RECALL]->(r:Recall) "
+        "OPTIONAL MATCH (r)-[:COVERS]->(l:Lot) "
+        "RETURN r.recall_id AS recall_id, r.scope AS scope, r.rationale AS rationale, "
+        "       r.status AS status, collect(DISTINCT l.lot_id) AS lots, r.created AS created "
+        "ORDER BY created",
+        {"inv_id": inv_id},
+    ).rows
+
+    sessions = run_read(
+        db,
+        "sessions digest",
+        "MATCH (s:Session)-[:BELONGS_TO]->(i:Investigation {inv_id:$inv_id}) "
+        "OPTIONAL MATCH (s)-[:AT_STEP]->(ps:ProtocolStep) "
+        "OPTIONAL MATCH (s)-[ho:HANDOFF]->(t:Session) "
+        "RETURN s.session_id AS session_id, s.role AS role, ps.name AS protocol_step, "
+        "       t.session_id AS handed_to, ho.reason AS handoff_reason, s.started AS started "
+        "ORDER BY started",
+        {"inv_id": inv_id},
+    ).rows
+
+    return {
+        "investigation": inv,
+        "hypotheses": hyps,
+        "tasks": tasks,
+        "recalls": recalls,
+        "sessions": sessions,
+    }
+
+
 def investigation_state(db: GraphDB, inv_id: str) -> dict[str, Any]:
     """Everything about an investigation: cases, hypotheses + evidence, tasks,
     recalls, sessions + tool calls, active protocol step."""
@@ -139,8 +217,9 @@ def investigation_state(db: GraphDB, inv_id: str) -> dict[str, Any]:
         "RETURN i.inv_id AS inv_id, i.title AS title, i.status AS status, "
         "       i.stage AS stage, i.opened AS opened, i.priority AS priority, "
         "       i.summary AS summary, "
-        "       collect(DISTINCT {case_id: c.case_id, person: p.name, "
-        "                          onset: c.onset, pathogen: c.pathogen}) AS cases",
+        "       collect(DISTINCT CASE WHEN c IS NULL THEN NULL ELSE "
+        "         {case_id: c.case_id, person: p.name, "
+        "          onset: c.onset, pathogen: c.pathogen} END) AS cases",
         {"inv_id": inv_id},
     ).first() or {}
 
@@ -148,17 +227,18 @@ def investigation_state(db: GraphDB, inv_id: str) -> dict[str, Any]:
         db,
         "hypotheses",
         "MATCH (i:Investigation {inv_id:$inv_id})-[:HAS_HYPOTHESIS]->(h:Hypothesis) "
-        "OPTIONAL MATCH (h)-[s:SUPPORTED_BY]->(e:Evidence) "
-        "OPTIONAL MATCH (h)-[c:CONTRADICTED_BY]->(ce:Evidence) "
+        "OPTIONAL MATCH (h)-[:SUPPORTED_BY]->(e:Evidence) "
+        "OPTIONAL MATCH (h)-[:CONTRADICTED_BY]->(ce:Evidence) "
         "OPTIONAL MATCH (e)-[:DERIVED_FROM]->(tc:ToolCall) "
+        "OPTIONAL MATCH (ce)-[:DERIVED_FROM]->(ct:ToolCall) "
         "RETURN h.hyp_id AS hyp_id, h.statement AS statement, h.status AS status, "
         "       h.confidence AS confidence, "
-        "       collect(DISTINCT {evidence_id: e.evidence_id, kind: e.kind, "
-        "                          summary: e.summary, weight: e.weight, "
-        "                          supports: true, tool: tc.tool}) AS supporting, "
-        "       collect(DISTINCT {evidence_id: ce.evidence_id, kind: ce.kind, "
-        "                          summary: ce.summary, weight: ce.weight, "
-        "                          supports: false}) AS contradicting",
+        "       collect(DISTINCT CASE WHEN e IS NULL THEN NULL ELSE "
+        "         {evidence_id: e.evidence_id, kind: e.kind, summary: e.summary, "
+        "          weight: e.weight, supports: true, tool: tc.tool} END) AS supporting, "
+        "       collect(DISTINCT CASE WHEN ce IS NULL THEN NULL ELSE "
+        "         {evidence_id: ce.evidence_id, kind: ce.kind, summary: ce.summary, "
+        "          weight: ce.weight, supports: false, tool: ct.tool} END) AS contradicting",
         {"inv_id": inv_id},
     ).rows
 
