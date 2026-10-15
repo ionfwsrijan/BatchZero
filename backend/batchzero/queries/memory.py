@@ -115,6 +115,20 @@ def subgraph(
 
 
 # ------------------------------------------------------------- investigation IO
+def evidence_subgraph(db: GraphDB, inv_id: str, hops: int = 3, limit: int = 400) -> dict[str, Any]:
+    """The provenance chain for the canvas: Investigation -> Hypothesis ->
+    Evidence -> ToolCall -> Session, plus the attached cases."""
+    roots = run_read(
+        db,
+        "evidence roots",
+        "MATCH (i:Investigation {inv_id:$inv_id}) "
+        "OPTIONAL MATCH (i)-[:INCLUDES]->(c:Case) "
+        "RETURN collect(DISTINCT id(i)) + collect(DISTINCT id(c)) AS roots",
+        {"inv_id": inv_id},
+    ).first() or {"roots": []}
+    return subgraph(db, [r for r in (roots.get("roots") or []) if r is not None], hops=hops, limit=limit)
+
+
 def list_investigations(db: GraphDB) -> QueryOutcome:
     cypher = (
         "MATCH (i:Investigation) "
