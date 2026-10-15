@@ -1,8 +1,9 @@
 """Correctness tests for the BatchZero query layer.
 
 These assert the *investigative* answers, not just that queries run — a query
-that returns the wrong source is worse than one that fails. They run against the
-seeded FalkorDB instance, so run ``python -m batchzero.seed --reset`` first.
+that returns the wrong source is worse than one that fails. The ``db`` fixture
+(see ``conftest.py``) seeds an isolated tenant so the graph-algorithm results
+are stable regardless of what other tests write to the live graph.
 """
 
 import pytest
@@ -10,11 +11,6 @@ import pytest
 from batchzero.db import GraphDB
 from batchzero.config import get_settings
 from batchzero.queries import actions, epidemiology, memory, protocol, supply
-
-
-@pytest.fixture(scope="module")
-def db():
-    return GraphDB(get_settings().tenant_graph)
 
 
 def test_recent_cases_lists_salmonella_cluster(db):

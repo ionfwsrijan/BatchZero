@@ -219,3 +219,7 @@ def _mount_ui() -> None:
 
 _mount_ui()
 
+
+if __name__ == "__main__":
+    main()
+
