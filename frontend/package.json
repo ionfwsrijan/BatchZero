@@ -9,9 +9,16 @@
     "preview": "vite preview --port 4173"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "cytoscape": "^3.30.2",
+    "lucide-react": "^1.59.0",
+    "motion": "^14.3.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
