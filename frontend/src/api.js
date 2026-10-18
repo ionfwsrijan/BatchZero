@@ -41,6 +41,10 @@ export async function streamSSE(path, body, onEvent, signal) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
+    // SSE allows LF *or* CRLF line endings; servers may emit either, and a frame
+    // boundary of "\r\n\r\n" never matches a search for "\n\n". Normalise first
+    // (raw CR cannot appear inside a JSON payload — it would be escaped).
+    buffer = buffer.replace(/\r/g, "");
 
     let idx;
     while ((idx = buffer.indexOf("\n\n")) !== -1) {

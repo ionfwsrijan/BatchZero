@@ -36,6 +36,13 @@ export default function App() {
   const caseCount = incident.cases?.length || activeInvestigation?.cases || 0;
   const hypotheses = detail?.hypotheses || [];
   const leadingHypothesis = [...hypotheses].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+  const confirmedHypotheses = hypotheses.filter((item) => item.status === "confirmed").length;
+  const refutedHypotheses = hypotheses.filter((item) => item.status === "refuted").length;
+  const hypothesisSummary = hypotheses.length
+    ? confirmedHypotheses || refutedHypotheses
+      ? `${confirmedHypotheses} confirmed · ${refutedHypotheses} refuted`
+      : `${hypotheses.length} under review`
+    : "No hypotheses yet";
   const providerLabel = config?.provider === "mock" ? "Demo environment" : "Live model";
 
   useEffect(() => { window.localStorage.setItem("batchzero-theme-v3", theme); }, [theme]);
@@ -191,7 +198,7 @@ export default function App() {
             <label className="field-label" htmlFor="investigation-select">Active investigation</label>
             <div className="active-select-shell"><span className="select-status-dot" /><select id="investigation-select" className="inv-select" value={invId || ""} onChange={(e) => openExisting(e.target.value)}><option value="">Select an investigation…</option>{investigations.map((item) => <option key={item.inv_id} value={item.inv_id}>{item.inv_id} · {item.stage} · {item.cases} cases</option>)}</select><ChevronDown size={15} /></div>
             <div className="sidebar-section-heading"><div><Users size={15} /><span>Response team</span></div><Badge variant="secondary">04 agents</Badge></div>
-            <AgentStream events={events} roleLabels={roleLabels} />
+            <AgentStream events={events} roleLabels={roleLabels} sessions={detail?.sessions || []} toolCalls={detail?.tool_calls || []} />
 
             <div className="sidebar-lower">
               <div className="followup-card">
@@ -226,7 +233,7 @@ export default function App() {
               <div className="overview-metrics">
                 <article className="metric-item metric-pathogen"><span className="metric-icon"><FlaskConical size={17} /></span><div><small>PATHOGEN</small><strong>{incident.cases?.find((item) => item.pathogen)?.pathogen || "Awaiting case data"}</strong></div><span className="metric-index">01</span></article>
                 <article className="metric-item metric-priority"><span className="metric-icon"><Activity size={17} /></span><div><small>PRIORITY</small><strong>{incident.priority || "Not assessed"}</strong></div><span className="metric-index">02</span></article>
-                <article className="metric-item metric-hypotheses"><span className="metric-icon"><GitBranch size={17} /></span><div><small>HYPOTHESES</small><strong>{hypotheses.length ? `${hypotheses.length} under review` : "No hypotheses yet"}</strong></div><span className="metric-index">03</span></article>
+                <article className="metric-item metric-hypotheses"><span className="metric-icon"><GitBranch size={17} /></span><div><small>HYPOTHESES</small><strong>{hypothesisSummary}</strong></div><span className="metric-index">03</span></article>
                 <article className="metric-item metric-leading"><span className="metric-icon"><Waypoints size={17} /></span><div><small>LEADING HYPOTHESIS</small><strong>{leadingHypothesis ? `${Math.round((leadingHypothesis.confidence || 0) * 100)}% confidence` : "Awaiting evidence"}</strong></div><span className="metric-index">04</span></article>
               </div>
             </section>
@@ -256,7 +263,7 @@ export default function App() {
               </motion.section>
 
               <motion.aside className="findings-column" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .4, delay: .12 }}>
-                {detail ? <InvestigationPanel state={detail} selected={selected} /> : <div className="empty-brief">
+                {detail ? <InvestigationPanel state={detail} selected={selected} graph={graph} /> : <div className="empty-brief">
                   <div className="brief-heading"><div><div className="section-kicker"><span className="kicker-mark"><CircleDot size={13} /></span> RESPONSE BRIEF</div><h2>Standing by for a signal</h2><p>Your command view is ready. No case data has been processed yet.</p></div><span className="brief-ready"><i /> READY</span></div>
                   <div className="brief-hero">
                     <div className="brief-orbit" aria-hidden="true"><span className="orbit-ring orbit-ring-one" /><span className="orbit-ring orbit-ring-two" /><span className="orbit-node orbit-node-one"><FlaskConical size={13} /></span><span className="orbit-node orbit-node-two"><GitBranch size={13} /></span><span className="orbit-node orbit-node-three"><Waypoints size={13} /></span><span className="orbit-node orbit-node-four"><ShieldCheck size={13} /></span><span className="orbit-center"><Activity size={18} /></span></div>

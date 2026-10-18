@@ -45,6 +45,28 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
   const ref = useRef(null);
   const cyRef = useRef(null);
   const [layout, setLayout] = useState("concentric");
+  const [activeTypes, setActiveTypes] = useState(() => new Set(["cases", "hypotheses", "evidence", "supply"]));
+
+  const categoryFor = (node) => {
+    const type = node.labels?.[0];
+    if (type === "Case") return "cases";
+    if (type === "Hypothesis") return "hypotheses";
+    if (type === "Evidence") return "evidence";
+    if (["Lot", "Supplier", "Facility", "Shipment", "Farm", "Ingredient", "MenuItem", "Inspection", "TemperatureReading", "Lab", "WastewaterSite", "PriorIncident"].includes(type)) return "supply";
+    return "activity";
+  };
+
+  const sourceNodes = graph?.nodes || [];
+  const visibleSourceNodes = sourceNodes.filter((node) => activeTypes.has(categoryFor(node)));
+  const visibleIds = new Set(visibleSourceNodes.map((node) => String(node.id)));
+  const visibleSourceEdges = (graph?.edges || []).filter((edge) => visibleIds.has(String(edge.source)) && visibleIds.has(String(edge.target)));
+
+  const toggleType = (type) => setActiveTypes((current) => {
+    const next = new Set(current);
+    if (next.has(type)) next.delete(type);
+    else next.add(type);
+    return next;
+  });
 
   const fit = useCallback((padding = 54) => {
     cyRef.current?.fit(undefined, padding);
@@ -60,7 +82,7 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
       degrees.set(target, (degrees.get(target) || 0) + 1);
     }
 
-    const nodes = (graph?.nodes || []).map((n) => {
+    const nodes = visibleSourceNodes.map((n) => {
       const id = String(n.id);
       const type = n.labels?.[0] || "Node";
       const color = TYPE_COLORS[type] || "#82aaff";
@@ -71,10 +93,10 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
         label: name.length > 28 ? `${name.slice(0, 26)}…` : name,
         status: n.props?.status,
         color,
-        size: 16 + Math.min((degrees.get(id) || 0) * 3.2, 28),
+        size: 20 + Math.min((degrees.get(id) || 0) * 4.1, 32),
       } };
     });
-    const edges = (graph?.edges || []).map((e) => ({
+    const edges = visibleSourceEdges.map((e) => ({
       data: {
         id: `e${e.id}`,
         source: String(e.source),
@@ -105,10 +127,10 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
             label: "data(label)",
             color: theme === "light" ? "#26354c" : "#e5eeff",
             "font-family": "DM Sans, Segoe UI, sans-serif",
-            "font-size": 9,
+            "font-size": nodes.length > 38 ? 10 : 12,
             "font-weight": 600,
             "text-wrap": "wrap",
-            "text-max-width": 112,
+            "text-max-width": nodes.length > 38 ? 104 : 148,
             "text-valign": "bottom",
             "text-margin-y": 7,
             "text-outline-color": theme === "light" ? "#ffffff" : "#080d17",
@@ -133,13 +155,13 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
             "shadow-blur": 10,
             "shadow-color": "data(color)",
             "shadow-opacity": 0.42,
-            label: "data(label)",
+            label: nodes.length > 38 || edges.length > 48 ? "" : "data(label)",
             color: theme === "light" ? "#586983" : "#b5c6e4",
             "font-family": "DM Sans, Segoe UI, sans-serif",
-            "font-size": 6,
+            "font-size": 8,
             "font-weight": 500,
             "text-rotation": "autorotate",
-            "text-opacity": 0.68,
+            "text-opacity": 0.82,
             "text-background-color": theme === "light" ? "#f8faff" : "#080d17",
             "text-background-opacity": theme === "light" ? 0.94 : 0.86,
             "text-background-padding": 2,
@@ -157,13 +179,13 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
         name: layout,
         animate: false,
         padding: 60,
-        minNodeSpacing: 42,
+        minNodeSpacing: nodes.length > 38 ? 40 : 54,
         avoidOverlap: true,
-        spacingFactor: 1.12,
+        spacingFactor: nodes.length > 38 ? 1.18 : 1.35,
         concentric: (node) => node.degree(),
         levelWidth: (nodes) => Math.max(nodes.maxDegree() / 3, 1),
-        nodeRepulsion: () => 9000,
-        idealEdgeLength: () => 104,
+        nodeRepulsion: () => nodes.length > 38 ? 16000 : 9000,
+        idealEdgeLength: () => nodes.length > 38 ? 92 : 104,
       },
       wheelSensitivity: 0.18,
       minZoom: 0.18,
@@ -177,7 +199,7 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
     });
     cyRef.current = cy;
     return () => cy.destroy();
-  }, [graph, onSelect, layout, theme]);
+  }, [graph, onSelect, layout, theme, activeTypes]);
 
   const changeLayout = (value) => setLayout(value);
 
@@ -197,12 +219,19 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
         </div>
       </div>
       <div className="graph-canvas" ref={ref} />
+      {visibleSourceNodes.length === 0 && <div className="graph-filter-empty"><strong>No entity types selected</strong><span>Turn a category back on to explore the evidence graph.</span><button onClick={() => setActiveTypes(new Set(["cases", "hypotheses", "evidence", "supply"]))}>Restore key entities</button></div>}
       <div className="map-legend">
         <div className="map-legend-heading"><span>LEGEND</span><i className="legend-pulse" /></div>
-        <small>NETWORK ENTITIES</small>
-        <div className="map-legend-types"><span><i className="legend-case" /> Cases</span><span><i className="legend-hypothesis" /> Hypotheses</span><span><i className="legend-evidence" /> Evidence</span><span><i className="legend-supply" /> Supply chain</span></div>
+        <small>FOCUS THE NETWORK</small>
+        <div className="map-legend-types">
+          <button className={!activeTypes.has("cases") ? "filter-off" : ""} aria-pressed={activeTypes.has("cases")} onClick={() => toggleType("cases")}><i className="legend-case" /> Cases</button>
+          <button className={!activeTypes.has("hypotheses") ? "filter-off" : ""} aria-pressed={activeTypes.has("hypotheses")} onClick={() => toggleType("hypotheses")}><i className="legend-hypothesis" /> Hypotheses</button>
+          <button className={!activeTypes.has("evidence") ? "filter-off" : ""} aria-pressed={activeTypes.has("evidence")} onClick={() => toggleType("evidence")}><i className="legend-evidence" /> Evidence</button>
+          <button className={!activeTypes.has("supply") ? "filter-off" : ""} aria-pressed={activeTypes.has("supply")} onClick={() => toggleType("supply")}><i className="legend-supply" /> Supply chain</button>
+          <button className={!activeTypes.has("activity") ? "filter-off" : ""} aria-pressed={activeTypes.has("activity")} onClick={() => toggleType("activity")}><i className="legend-activity" /> More records</button>
+        </div>
         <div className="map-legend-divider" />
-        <div className="map-counts"><span><strong>{graph?.nodes?.length || 0}</strong> nodes</span><span><strong>{graph?.edges?.length || 0}</strong> links</span></div>
+        <div className="map-counts"><span><strong>{visibleSourceNodes.length}</strong> of {sourceNodes.length} nodes</span><span><strong>{visibleSourceEdges.length}</strong> links</span></div>
       </div>
     </div>
   );

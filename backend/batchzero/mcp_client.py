@@ -18,6 +18,8 @@ from mcp import StdioServerParameters
 from mcp.client.session import ClientSession
 from mcp.client.stdio import get_default_environment, stdio_client
 
+from .config import get_settings
+
 BACKEND_DIR = str(Path(__file__).resolve().parents[1])
 
 
@@ -38,6 +40,16 @@ def server_params(
             "BATCHZERO_LOG_CALLS": "1" if log_calls else "0",
         }
     )
+    # MCP's safe inherited-environment allowlist omits app-specific settings.
+    # Pass the active graph connection explicitly so tool writes land in the
+    # same tenant database queried by the API and shown in the UI.
+    settings = get_settings()
+    env["FALKORDB_HOST"] = settings.falkordb_host
+    env["FALKORDB_PORT"] = str(settings.falkordb_port)
+    if settings.falkordb_password:
+        env["FALKORDB_PASSWORD"] = settings.falkordb_password
+    else:
+        env.pop("FALKORDB_PASSWORD", None)
     if session_id:
         env["BATCHZERO_SESSION_ID"] = session_id
     if investigation_id:
