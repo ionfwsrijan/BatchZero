@@ -33,7 +33,7 @@ behind it.
 | **Decoy** | Lot `LET-2210` tied at 11/11 cases — **refuted 0.05** |
 | **Why it's a graph problem** | The tie is broken by a genomic match graph, not a count |
 | **Stack** | FalkorDB · FastAPI + SSE · real MCP subprocesses · React + cytoscape |
-| **Graph** | 26 labels · 45 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
+| **Graph** | 26 labels · 40 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
 | **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
 | **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
 | **Tests** | 36 passing offline against a live FalkorDB |
@@ -173,7 +173,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 
 ## Graph data model
 
-45 relationship types across 21 node labels. The core investigation patterns:
+40 relationship types across 26 node labels. The core investigation patterns:
 
 | Path | Meaning |
 |------|---------|

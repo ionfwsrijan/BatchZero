@@ -37,7 +37,7 @@ python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 
 | Requirement | Where it is satisfied | Evidence |
 |-------------|----------------------|----------|
-| **Document the graph data model** | `README.md` → *Graph data model*; `docs/GRAPH_MODEL.md` (26 labels, 45 rel types) | `backend/batchzero/schema.py` is authoritative |
+| **Document the graph data model** | `README.md` → *Graph data model*; `docs/GRAPH_MODEL.md` (26 labels, 40 rel types) | `backend/batchzero/schema.py` is authoritative |
 | **Show key Cypher / queries** | `README.md` → *Key Cypher*; `backend/batchzero/queries/` (pure functions) | 5 highlighted patterns incl. intersection, `reduce` cold chain, provenance replay |
 | **Architecture diagram** | `README.md` → *Architecture*; `docs/ARCHITECTURE.md` (Mermaid + prose) | 5 layers: db → queries → tools → MCP → agent/API |
 | **Use graph algorithms** | `algo.betweenness`, `algo.labelPropagation`, `algo.SPpaths`, `algo.WCC` | `queries/supply.py:121`, `queries/epidemiology.py:175` |

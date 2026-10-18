@@ -112,6 +112,7 @@ erDiagram
 (Facility)-[:EMPLOYS]->(Person)
 (Facility|Supplier)-[:SUBJECT_OF]->(Inspection)
 (Supplier|Facility)-[:IMPLICATED_IN]->(PriorIncident)
+(Person)-[:WORKED_ON]->(Investigation)
 (Case)-[:LINKED_ISOLATE]->(Isolate)
 (Lab)-[:PROCESSED]->(Isolate)
 (Isolate)-[:SAMPLED_FROM]->(Lot)
