@@ -1,5 +1,14 @@
 # BatchZero
 
+[![CI](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml/badge.svg)](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml)
+[![tests](https://img.shields.io/badge/tests-36%20passing-brightgreen)](backend/tests)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](backend/pyproject.toml)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20SSE-009688)](backend/batchzero/api/app.py)
+[![React](https://img.shields.io/badge/UI-React%20%2B%20cytoscape-61dafb)](frontend)
+[![Graph](https://img.shields.io/badge/graph-FalkorDB-c62828)](https://falkordb.com)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ed)](docker-compose.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
+
 **An outbreak source-investigation agent that lives in a graph.**
 
 When a cluster of foodborne illness appears, a public-health investigator has a
@@ -15,6 +24,22 @@ behind it.
 
 ---
 
+## At a glance
+
+| | |
+|---|---|
+| **Problem** | Trace 11 foodborne-illness cases to one lot + supplier, and act |
+| **Answer** | Lot `MG-4417` (GreenLeaf Distributors) — **confirmed 0.96** |
+| **Decoy** | Lot `LET-2210` tied at 11/11 cases — **refuted 0.05** |
+| **Why it's a graph problem** | The tie is broken by a genomic match graph, not a count |
+| **Stack** | FalkorDB · FastAPI + SSE · real MCP subprocesses · React + cytoscape |
+| **Graph** | 26 labels · 45 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
+| **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
+| **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
+| **Tests** | 36 passing offline against a live FalkorDB |
+
+---
+
 ## Why this is a graph problem (not decoration)
 
 BatchZero is built so that removing FalkorDB doesn't just make it slower — it
@@ -27,11 +52,11 @@ makes it *impossible*. The graph is load-bearing at four levels:
 2. **Traceability is traversal.** Following a suspicious lot upstream to its
    farm and downstream to every plate it reached is a variable-length path —
    the natural unit of a food recall.
-2. **Graph algorithms earn their keep.** `algo.labelPropagation` finds exposure
+3. **Graph algorithms earn their keep.** `algo.labelPropagation` finds exposure
    communities, `algo.betweenness` finds the structural chokepoint to inspect
    first, `algo.SPpaths` finds the shortest causal link between two entities,
    and the genomic match is a graph of isolate-to-isolate SNP distances.
-3. **Provenance is a first-class graph.** Every claim the agent makes is a
+4. **Provenance is a first-class graph.** Every claim the agent makes is a
    node. `Hypothesis -[:SUPPORTED_BY]-> Evidence -[:DERIVED_FROM]-> ToolCall
    -[:LOGGED]-> Session`. You can always walk from a confident conclusion back
    to the exact query that produced it.
@@ -43,21 +68,21 @@ makes it *impossible*. The graph is load-bearing at four levels:
 Given a cluster of 11 lab-confirmed *Salmonella* Enteritidis cases in the
 (fictional) city of Port Meridian, the agent:
 
-- builds the **case file** and the shared-exposure picture (epi curve, common
-  ingredients, facilities, upstream suppliers, exposure communities);
-3. records **candidate hypotheses** and immediately hits the classic trap: two
+1. builds the **case file** and the shared-exposure picture (epi curve, common
+   ingredients, facilities, upstream suppliers, exposure communities);
+2. records **candidate hypotheses** and immediately hits the classic trap: two
    ingredients (*Microgreens Mix* and *Romaine Lettuce*) and two suppliers are
    **tied at 11/11 cases**. Counts cannot break the tie;
-4. breaks it with **genomics** — the environmental isolate from lot `MG-4417`
+3. breaks it with **genomics** — the environmental isolate from lot `MG-4417`
    matches patient isolates across all 11 cases at ≤2 SNPs, while the
    `LET-2210` (lettuce) isolate matches **nothing**;
-5. enforces **temporal hygiene** — one case's exposure record is logged
+4. enforces **temporal hygiene** — one case's exposure record is logged
    *after* symptom onset and is rejected by the incubation-window check, so a
    stale row can't mislead the agent;
-6. traces `MG-4417` upstream through its **shipment** and **farm**, audits the
+5. traces `MG-4417` upstream through its **shipment** and **farm**, audits the
    **cold chain** (a 12.8 °C breach on shipment `SH-2291`), checks supplier
    **history** (a 2025 incident with the same distributor);
-7. **files the actions** — a **recall** scoped to `MG-4417`, inspection tasks
+6. **files the actions** — a **recall** scoped to `MG-4417`, inspection tasks
    assigned to real inspectors, and a distilled **institutional fact** for next
    time.
 
@@ -67,6 +92,43 @@ The result is a **confirmed hypothesis at 96% confidence**, a refuted decoy at
 ---
 
 ## Architecture
+
+```mermaid
+flowchart TB
+    subgraph UI["Frontend — React + cytoscape"]
+        Console["Investigation console<br/>agent stream · provenance graph · case file"]
+    end
+
+    subgraph API["API — FastAPI + SSE"]
+        SSE["/investigations/stream<br/>/investigations/{id}/message"]
+    end
+
+    subgraph Runtime["Agent runtime"]
+        Orch["orchestrator.py<br/>4 roles in protocol order"]
+        Loop["loop.py + llm.py<br/>Groq · Mock · Fallback"]
+    end
+
+    subgraph MCP["MCP host — stdio, one server per role"]
+        M1["intake — 17 tools"]
+        M2["cluster"]
+        M3["tracer — 25 tools"]
+        M4["briefing"]
+    end
+
+    Tools["tools.py — 40 tools<br/>role-scoped · provenance-logging"]
+    Queries["queries/ — pure Cypher<br/>epi · supply · memory · protocol · actions"]
+    DB[("FalkorDB<br/>graph per tenant")]
+
+    Console -->|SSE| SSE
+    SSE --> Orch
+    Orch --> Loop
+    Loop <--> MCP
+    MCP --> Tools
+    Tools --> Queries
+    Queries <--> DB
+```
+
+The same system, as plain text (kept so it reads anywhere):
 
 ```
                          ┌─────────────────────────────────────────┐
@@ -194,6 +256,9 @@ RETURN h.statement, e.summary, tc.tool, tc.ms, s.role
 
 ## Quickstart
 
+Already have `make`? One line does steps 1–4 (`make falkordb install seed
+replay`), and `make stack` brings up FalkorDB + API + UI in Docker. Otherwise:
+
 ```bash
 # 1 — start FalkorDB (Redis protocol + FalkorDB Browser on :3000)
 docker compose up -d falkordb
@@ -210,6 +275,7 @@ python -m batchzero.seed --reset
 # 4 — watch the whole investigation run (reproducible, no API key needed)
 python -m batchzero.demo.replay
 python -m batchzero.demo.replay --benchmark 3   # correctness + latency metrics
+python -m batchzero.demo.replay --live          # same loop, driven by a live LLM
 
 # 5 — serve the API + UI
 python -m batchzero.api.app            # http://localhost:8000
@@ -226,7 +292,23 @@ npm run dev                            # http://localhost:5173
 The API also serves the built UI at `/` after `npm run build`, so the whole
 demo can run from a single process.
 
-### Configuration
+---
+
+## Judge quick commands
+
+- **Watch live investigation**: `python -m batchzero.demo.replay` (no key)
+- **Benchmark (reproducible)**: `python -m batchzero.demo.replay --benchmark 3`
+- **Live LLM mode**: `python -m batchzero.demo.replay --live` (falls back gracefully on 429)
+- **Run full API + UI**: `python -m batchzero.api.app` (`http://localhost:8000`)
+- **All tests**: `pytest -q` (36 passing, offline)
+
+**Read next:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) (judge guide + rubric
+map) · [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) (3-minute video script) ·
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
+[`docs/GRAPH_MODEL.md`](docs/GRAPH_MODEL.md) (full catalogue) ·
+[`docs/BLOG.md`](docs/BLOG.md) (why we built it).
+
+## Configuration
 
 Copy `.env.example` to `.env`. To use a live LLM:
 
@@ -291,7 +373,10 @@ batchzero/
 │  │  └─ demo/replay.py   # live transcript + benchmark
 │  └─ tests/
 ├─ frontend/              # React + cytoscape investigation console
-├─ docs/                  # architecture, graph model, demo script, blog
+├─ docs/                  # submission guide, architecture, graph model, demo script, blog
+├─ scripts/               # PowerShell helpers (dev.ps1, run-demo.ps1)
+├─ Makefile               # one-word targets for common tasks
+├─ .github/workflows/ci.yml  # CI: backend tests + frontend build
 └─ docker-compose.yml
 ```
 

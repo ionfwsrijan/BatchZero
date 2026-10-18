@@ -8,6 +8,57 @@ The authoritative source is [`backend/batchzero/schema.py`](../backend/batchzero
 
 ---
 
+## Rendered model
+
+**Domain graph — the outbreak**
+
+```mermaid
+erDiagram
+    Person ||--o{ Case : HAS_CASE
+    Person ||--o{ ExposureEvent : PARTICIPATED
+    ExposureEvent }o--|| Facility : AT
+    ExposureEvent }o--o{ MenuItem : INVOLVES
+    MenuItem ||--o{ Ingredient : CONTAINS
+    ExposureEvent }o--o{ Lot : CONSUMED
+    Facility }o--o{ Lot : PURCHASED
+    Lot }o--|| Supplier : SUPPLIED_BY
+    Lot }o--o| Farm : ORIGINATES_FROM
+    Lot }o--o{ Shipment : SHIPPED_IN
+    Shipment }o--|| Facility : DELIVERED_TO
+    Shipment ||--o{ TemperatureReading : HAS_READING
+    Facility ||--o{ Person : EMPLOYS
+    Facility ||--o{ Inspection : SUBJECT_OF
+    Supplier ||--o{ PriorIncident : IMPLICATED_IN
+    Case }o--|| Isolate : LINKED_ISOLATE
+    Lab ||--o{ Isolate : PROCESSED
+    Isolate }o--o| Lot : SAMPLED_FROM
+    Isolate ||--o{ Isolate : MATCHES
+    WastewaterSite }o--o{ Isolate : DETECTED
+```
+
+**Agent graph — the investigation's own memory & provenance**
+
+```mermaid
+erDiagram
+    Investigation ||--o{ Case : INCLUDES
+    Investigation ||--o{ Hypothesis : HAS_HYPOTHESIS
+    Hypothesis ||--o{ Evidence : SUPPORTED_BY
+    Hypothesis ||--o{ Evidence : CONTRADICTED_BY
+    Evidence ||--o{ ToolCall : DERIVED_FROM
+    Investigation ||--o{ Task : HAS_TASK
+    Investigation ||--o{ Recall : HAS_RECALL
+    Recall }o--o{ Lot : COVERS
+    Session }o--|| Investigation : BELONGS_TO
+    Session ||--o{ Session : HANDOFF
+    Session ||--o{ Message : HAS_MESSAGE
+    Session ||--o{ ToolCall : LOGGED
+    Session }o--|| ProtocolStep : AT_STEP
+    ProtocolStep ||--o{ ProtocolStep : NEXT
+    Fact ||--o{ Evidence : FACT_SUPPORTED_BY
+```
+
+---
+
 ## Node labels
 
 | Label | Meaning |

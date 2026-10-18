@@ -3,31 +3,84 @@
 BatchZero is layered so that each concern is independently testable and so the
 graph stays the single source of truth.
 
+## The layers, rendered
+
+```mermaid
+flowchart TB
+    subgraph api["API layer — api/app.py (FastAPI + SSE)"]
+        REST["read endpoints<br/>cases · investigations · subgraph · stats"]
+        SSE2["SSE: start investigation<br/>SSE: chat follow-up"]
+    end
+
+    subgraph agent["Agent layer — agent/"]
+        ORCH["orchestrator.run_investigation<br/>ROLES = intake → cluster → tracer → briefing"]
+        LOOP["loop.run_role_session<br/>LLM ⇄ tool calls ⇄ MCP"]
+        LLM["llm.py<br/>GroqLLM · MockLLM · FallbackLLM"]
+        PROMPT["prompts.py · scripts.py"]
+    end
+
+    subgraph mcp["MCP layer — mcp_server.py / mcp_client.py"]
+        HOST["MCPToolSession (host)"]
+        SERVER["stdio subprocess<br/>role + tenant via env"]
+    end
+
+    subgraph tools["Tool layer — tools.py"]
+        REG["TOOLS registry — 40 tools"]
+        SCOPE["ROLE_TOOLSETS"]
+        EXEC["execute() — time → provenance → JSON-normalise"]
+    end
+
+    subgraph q["Query layer — queries/ (pure Cypher)"]
+        Q1["epidemiology.py"]
+        Q2["supply.py"]
+        Q3["memory.py"]
+        Q4["protocol.py"]
+        Q5["actions.py"]
+    end
+
+    DB[("FalkorDB — graph per tenant")]
+
+    SSE2 --> ORCH
+    ORCH --> LOOP
+    LOOP --- LLM
+    LOOP --- PROMPT
+    LOOP <--> HOST
+    HOST <--> SERVER
+    SERVER --> REG
+    REG --> SCOPE
+    SCOPE --> EXEC
+    EXEC --> Q1 & Q2 & Q3 & Q4 & Q5
+    Q1 & Q2 & Q3 & Q4 & Q5 <--> DB
+    REST -.-> DB
 ```
-              ┌───────────────────────────────────────────────┐
-              │                   FalkorDB                     │
-              └───────▲───────────────────────────┬───────────┘
-                      │ Cypher                     │ Cypher
-   ┌──────────────────┴───────────┐    ┌───────────┴──────────────────┐
-   │  queries/  (pure functions)  │    │  mcp_server.py  (per-role)     │
-   │  epi · supply · memory ·      │    │  wraps tools.py, exposes only  │
-   │  protocol · actions           │    │  the role's tool-set over MCP  │
-   └──────────────────▲───────────┘    └───────────▲──────────────────┘
-                      │                             │ stdio (JSON-RPC)
-   ┌──────────────────┴───────────┐    ┌───────────┴──────────────────┐
-   │  tools.py (40 tools)         │    │  mcp_client.py (MCP host)      │
-   │  role-scoped tool-sets,      │◀───│  spawns server subprocesses    │
-   │  provenance logging          │    └───────────▲──────────────────┘
-   └──────────────────────────────┘                │
-                                       ┌────────────┴─────────────┐
-                                       │  agent/                   │
-                                       │  loop · orchestrator ·    │
-                                       │  llm · scripts · prompts  │
-                                       └────────────┬─────────────┘
-                                                    │ events
-                                       ┌────────────┴─────────────┐
-                                       │  api/app.py (FastAPI+SSE) │
-                                       └──────────────────────────┘
+
+## One investigation, as a sequence
+
+```mermaid
+sequenceDiagram
+    participant U as UI (React)
+    participant A as FastAPI
+    participant O as orchestrator
+    participant L as loop + LLM
+    participant M as MCP server (per role)
+    participant D as FalkorDB
+
+    U->>A: POST /investigations/stream
+    A->>O: run_investigation(emit)
+    loop four roles in protocol order
+        O->>D: create Session, record handoff
+        O->>L: run_role_session(role, brief)
+        L->>M: spawn stdio subprocess (tenant+role injected)
+        L->>L: model chooses a tool (Groq or plan)
+        L->>M: tools/call {name, args}
+        M->>D: execute() → write ToolCall + evidence
+        D-->>M: rows
+        M-->>L: JSON result (clipped to context)
+        L-->>A: emit role_start | assistant | tool | role_end
+        A-->>U: SSE event stream
+    end
+    O->>D: final digest + provenance subgraph
+    D-->>U: hypotheses, evidence chain, recall, tasks
 ```
 
 ## 1. DB layer (`db.py`)
@@ -72,7 +125,7 @@ is the point.
   evidence, create task, draft recall, remember fact, record sessions/messages,
   log tool calls, handoff.
 
-## 2. Tool layer (`tools.py`)
+## 3. Tool layer (`tools.py`)
 
 40 tools registered in a `TOOLS` dict. A tool wraps a query function, is
 executed through `execute(ctx, name, args)` which:
@@ -95,7 +148,7 @@ executed through `execute(ctx, name, args)` which:
 The **Briefing Officer can `draft_recall`; the Cluster Analyst cannot.** The
 protocol is enforced by the tool surface, not by prompt willpower.
 
-## 3. MCP layer (`mcp_server.py`, `mcp_client.py`)
+## 4. MCP layer (`mcp_server.py`, `mcp_client.py`)
 
 Each role is a **real MCP server subprocess** over stdio
 (`mcp.server.mcpserver.MCPServer`). The server exposes only the role's tools and
@@ -112,7 +165,7 @@ Two non-obvious implementation details:
 - the client parses the server's JSON text content back into a dict, which is
   what the agent loop feeds to the LLM and what the mock plan reads from.
 
-## 4. Agent layer (`agent/`)
+## 5. Agent layer (`agent/`)
 
 - `llm.py` — a single `BaseLLM.complete(messages, tools)` interface with a
   `GroqLLM` (OpenAI-compatible) and a `MockLLM` that replays a deterministic
@@ -131,7 +184,7 @@ Because the mock and the live model share the loop, switching from a scripted
 demo to a live LLM changes *who decides* the next tool, not how the graph is
 read or written.
 
-## 5. API + UI (`api/app.py`, `frontend/`)
+## 6. API + UI (`api/app.py`, `frontend/`)
 
 FastAPI exposes read endpoints (cases, investigations, the provenance
 sub-graph, graph summary, role tools) and two **SSE** endpoints that stream the
