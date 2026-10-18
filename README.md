@@ -40,6 +40,22 @@ behind it.
 
 ---
 
+## Demo
+
+**[Watch the 95-second demo](docs/demo.mp4)** — the problem, why the graph is
+load-bearing, the architecture and data model, then the four-role protocol
+running live against FalkorDB in the investigation console (streaming agent
+steps, evidence network, epi curve, dark mode, follow-up questions), followed by
+real benchmark and test output.
+
+Reproduce it yourself in one command after `docker compose up`:
+
+```bash
+python -m batchzero.demo.replay --benchmark 3
+```
+
+---
+
 ## Why this is a graph problem (not decoration)
 
 BatchZero is built so that removing FalkorDB doesn't just make it slower — it
@@ -110,9 +126,9 @@ flowchart TB
 
     subgraph MCP["MCP host — stdio, one server per role"]
         M1["intake — 17 tools"]
-        M2["cluster"]
-        M3["tracer — 25 tools"]
-        M4["briefing"]
+        M2["cluster — 25 tools"]
+        M3["tracer — 22 tools"]
+        M4["briefing — 18 tools"]
     end
 
     Tools["tools.py — 40 tools<br/>role-scoped · provenance-logging"]
@@ -141,7 +157,7 @@ The same system, as plain text (kept so it reads anywhere):
 ┌─────┴──────┐   MCP (stdio)    ┌─────────┴────────┐   MCP (stdio)  ┌─────┴──────┐
 │ MCP server │◀────────────────▶│  agent runtime  │◀──────────────▶│ MCP server │
 │ role=intake│                  │   (4 roles in   │                │ role=...   │
-│ 17 tools   │                  │  protocol order)│                │ 25 tools   │
+│ 17 tools   │                  │  protocol order)│                │ 22 tools   │
 └─────▲──────┘                  └────────┬────────┘                └─────▲──────┘
       │                                  │                               │
       │                       ┌──────────┴──────────┐                    │
@@ -158,7 +174,8 @@ The same system, as plain text (kept so it reads anywhere):
 - **Role-scoped tools via real MCP.** Each role runs as its own
   `python -m batchzero.mcp_server` subprocess (stdio transport) exposing only
   its tool-set. The Intake Officer can open a case but cannot draft a recall;
-  only the Tracer/Briefing roles can. Capability *is* the protocol step.
+  only the Briefing Officer can — and only the Tracer and Briefing roles can
+  file tasks. Capability *is* the protocol step.
 - **Provenance is automatic.** Every tool call is timed and written to the
   graph as a `ToolCall` node tied to the `Session`. Evidence cites the
   `tool_call_id` it came from, so the UI can replay the exact query behind any
