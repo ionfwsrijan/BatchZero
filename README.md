@@ -42,7 +42,7 @@ behind it.
 
 ## Demo
 
-**[Watch the 95-second demo](docs/demo.mp4)** — the problem, why the graph is
+**[Watch the 90-second demo](docs/demo.mp4)** (3840×2160 @ 60fps) — the problem, why the graph is
 load-bearing, the architecture and data model, then the four-role protocol
 running live against FalkorDB in the investigation console (streaming agent
 steps, evidence network, epi curve, dark mode, follow-up questions), followed by

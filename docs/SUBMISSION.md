@@ -44,7 +44,7 @@ python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 | **Graph is load-bearing** | Removing FalkorDB makes 4 core capabilities *impossible*, not slow | `README.md` → *Why this is a graph problem* |
 | **Multi-tenant** | One FalkorDB graph per agency (`pmph_ops`, `training_academy`) | `config.py`, `BATCHZERO_TENANT` injected per MCP subprocess |
 | **Reproducible demo** | Deterministic plan drives the same loop; no key required | `agent/scripts.py`, `tests/conftest.py` pins `LLM_PROVIDER=mock` |
-| **Demo video** | `docs/demo.mp4` — 95s: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
+| **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
 | **Tests** | 36 tests offline against a live FalkorDB | `backend/tests/` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
