@@ -1,0 +1,16 @@
+# Build context for deploy/Dockerfile (repo root).
+.git
+.github
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+backend/.venv
+backend/.venv/**
+backend/.env
+frontend/node_modules
+frontend/dist
+docs/demo.mp4
+docs/*.mp4
+*.mp4
+**/*.mp4
+.env

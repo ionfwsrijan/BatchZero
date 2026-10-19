@@ -309,6 +309,21 @@ npm run dev                            # http://localhost:5173
 The API also serves the built UI at `/` after `npm run build`, so the whole
 demo can run from a single process.
 
+### Deploy it (one container, no external database)
+
+`deploy/Dockerfile` builds a single image: FalkorDB + the API + the compiled UI.
+The entrypoint starts the graph engine, seeds both tenants on boot, then serves
+the app on `$PORT`.
+
+```bash
+docker build -f deploy/Dockerfile -t batchzero .
+docker run --rm -p 8000:8000 batchzero        # http://localhost:8000
+```
+
+For the hosted demo, `render.yaml` is a ready blueprint for a free Render web
+service (Singapore) — see [`docs/DEPLOY.md`](docs/DEPLOY.md) for the one-click
+and manual routes, cold-start behavior, and how to switch on the live LLM.
+
 ---
 
 ## Judge quick commands

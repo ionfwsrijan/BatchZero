@@ -31,6 +31,10 @@ python -m batchzero.demo.replay            # watch the whole investigation
 python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 ```
 
+**Or run the whole stack as one container** (FalkorDB included, no external DB):
+`docker build -f deploy/Dockerfile -t batchzero . && docker run -p 8000:8000 batchzero`
+— see [`docs/DEPLOY.md`](DEPLOY.md) for the hosted Render blueprint.
+
 ---
 
 ## Track fit — scored requirements, mapped
@@ -47,6 +51,7 @@ python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 | **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
 | **Tests** | 36 tests offline against a live FalkorDB | `backend/tests/` |
+| **Live deployment** | One container (FalkorDB + API + built UI); `render.yaml` blueprint for a free Render web service | `deploy/Dockerfile`, `deploy/start.sh`, `docs/DEPLOY.md` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
 | **Explainable output** | Provenance chain on every claim | `Hypothesis→Evidence→ToolCall→Session` |
 
