@@ -33,6 +33,7 @@ behind it.
 | **Decoy** | Lot `LET-2210` tied at 11/11 cases — **refuted 0.05** |
 | **Why it's a graph problem** | The tie is broken by a genomic match graph, not a count |
 | **Stack** | FalkorDB · FastAPI + SSE · real MCP subprocesses · React + cytoscape |
+| **Live** | <https://batchzero.onrender.com/> (free instance, ~60s cold start) |
 | **Graph** | 26 labels · 40 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
 | **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
 | **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
@@ -41,6 +42,12 @@ behind it.
 ---
 
 ## Demo
+
+**[Live demo → batchzero.onrender.com](https://batchzero.onrender.com/)** — the
+whole stack (FalkorDB + agent + UI) in one container. Click **Run
+investigation** and watch the four roles work. If the free instance has gone to
+sleep, the first load takes ~60s to wake; it reseeds itself on boot, so the demo
+is always in a known state.
 
 **[Watch the 90-second demo](docs/demo.mp4)** (3840×2160 @ 60fps) — the problem, why the graph is
 load-bearing, the architecture and data model, then the four-role protocol
@@ -322,6 +329,9 @@ docker run --rm -p 8000:8000 batchzero        # http://localhost:8000
 
 `render.yaml` is a ready blueprint for a free Render web service (Singapore);
 the instance type, region, and health check (`/api/health`) are all it needs.
+The hosted instance runs this image at <https://batchzero.onrender.com/> — free
+tier sleeps after ~15 minutes idle, so the first request after that takes ~60s
+to wake (it reseeds itself on boot).
 
 ---
 

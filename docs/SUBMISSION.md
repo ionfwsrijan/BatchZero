@@ -10,6 +10,9 @@ claim yourself.
 
 ## 1 — TL;DR
 
+**Live:** <https://batchzero.onrender.com/> — the whole stack in one container
+(free tier; ~60s cold start if it has gone to sleep).
+
 BatchZero is an **outbreak source-investigation agent** that runs a real
 foodborne-illness case end to end over **FalkorDB**. Four role-scoped agents
 (Intake Officer → Cluster Analyst → Supply Chain Tracer → Briefing Officer) work
@@ -51,7 +54,7 @@ python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 | **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
 | **Tests** | 36 tests offline against a live FalkorDB | `backend/tests/` |
-| **Live deployment** | One container (FalkorDB + API + built UI); `render.yaml` blueprint for a free Render web service | `deploy/Dockerfile`, `deploy/start.sh`, `render.yaml` |
+| **Live deployment** | Running at <https://batchzero.onrender.com/> — one container (FalkorDB + API + built UI), free Render web service from `render.yaml` | `deploy/Dockerfile`, `deploy/start.sh`, `render.yaml` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
 | **Explainable output** | Provenance chain on every claim | `Hypothesis→Evidence→ToolCall→Session` |
 
@@ -107,6 +110,9 @@ capabilities do not degrade — they vanish:
 ---
 
 ## 5-minute judge walkthrough
+
+**Fastest path:** open <https://batchzero.onrender.com/> and click **Run
+investigation** — no install, no key. Everything below reproduces it locally.
 
 ```bash
 # 1. Graph up
