@@ -87,10 +87,13 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
       const type = n.labels?.[0] || "Node";
       const color = TYPE_COLORS[type] || "#82aaff";
       const name = String(nodeLabel(n.props, n.labels));
+      const isCoreEntity = ["Case", "Hypothesis", "Evidence"].includes(type);
+      const isConnectedSource = categoryFor(n) === "supply" && (degrees.get(id) || 0) >= 2;
       return { data: {
         id,
         type,
-        label: name.length > 28 ? `${name.slice(0, 26)}…` : name,
+        label: isCoreEntity || isConnectedSource ? (name.length > 24 ? `${name.slice(0, 22)}…` : name) : "",
+        fullLabel: name,
         status: n.props?.status,
         color,
         size: 20 + Math.min((degrees.get(id) || 0) * 4.1, 32),
@@ -155,7 +158,7 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
             "shadow-blur": 10,
             "shadow-color": "data(color)",
             "shadow-opacity": 0.42,
-            label: nodes.length > 38 || edges.length > 48 ? "" : "data(label)",
+            label: edges.length > 24 ? "" : "data(label)",
             color: theme === "light" ? "#586983" : "#b5c6e4",
             "font-family": "DM Sans, Segoe UI, sans-serif",
             "font-size": 8,
@@ -172,7 +175,7 @@ export default function GraphCanvas({ graph, onSelect, theme = "dark" }) {
         { selector: 'node[status = "confirmed"]', style: { "border-color": theme === "light" ? "#7de2c2" : "#c4fff1", "border-width": 3, "shadow-blur": 30, "shadow-opacity": 0.94 } },
         { selector: 'node[status = "refuted"]', style: { opacity: 0.48, "shadow-opacity": 0.2 } },
         { selector: 'node[status = "likely"]', style: { "border-color": "#e2d6ff", "border-width": 2.5 } },
-        { selector: "node:selected", style: { "border-color": theme === "light" ? "#ffffff" : "#f3f7ff", "border-width": 3, "shadow-blur": 34, "shadow-opacity": 1, "overlay-color": "#72aaff", "overlay-opacity": 0.15, "overlay-padding": 10 } },
+        { selector: "node:selected", style: { label: "data(fullLabel)", "text-max-width": 190, "font-size": 11, "border-color": theme === "light" ? "#ffffff" : "#f3f7ff", "border-width": 3, "shadow-blur": 34, "shadow-opacity": 1, "overlay-color": "#72aaff", "overlay-opacity": 0.15, "overlay-padding": 10 } },
         { selector: "edge:selected", style: { width: 2.7, "line-opacity": 1, "shadow-blur": 20, "shadow-opacity": 0.92 } },
       ],
       layout: {

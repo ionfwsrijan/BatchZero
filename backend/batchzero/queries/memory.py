@@ -67,12 +67,14 @@ def subgraph(
     """Extract a bounded sub-graph around the given nodes, for the canvas.
 
     Two traversals: first collect nodes within ``hops`` of any root, then pull
-    every relationship whose endpoints both landed in that set. Returns plain
-    node/edge dicts ready for cytoscape.js.
+    every relationship whose endpoints both landed in that set. Investigation
+    maps must not cross through a shared case into a sibling investigation.
+    Returns plain node/edge dicts ready for cytoscape.js.
     """
     node_res = db.ro_query(
         "MATCH (root) WHERE id(root) IN $roots "
         f"MATCH path = (root)-[*1..{hops}]-(n) "
+        "WHERE ALL(node IN nodes(path) WHERE node = root OR NOT node:Investigation) "
         "UNWIND nodes(path) AS node "
         "WITH DISTINCT node LIMIT $limit "
         "RETURN id(node) AS id, labels(node) AS labels, node AS props",
