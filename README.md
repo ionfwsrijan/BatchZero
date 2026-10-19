@@ -274,7 +274,7 @@ RETURN h.statement, e.summary, tc.tool, tc.ms, s.role
 ## Quickstart
 
 Already have `make`? One line does steps 1–4 (`make falkordb install seed
-replay`), and `make stack` brings up FalkorDB + API + UI in Docker. Otherwise:
+replay`), and `make api` serves the API + UI. Otherwise:
 
 ```bash
 # 1 — start FalkorDB (Redis protocol + FalkorDB Browser on :3000)
@@ -320,9 +320,8 @@ docker build -f deploy/Dockerfile -t batchzero .
 docker run --rm -p 8000:8000 batchzero        # http://localhost:8000
 ```
 
-For the hosted demo, `render.yaml` is a ready blueprint for a free Render web
-service (Singapore) — see [`docs/DEPLOY.md`](docs/DEPLOY.md) for the one-click
-and manual routes, cold-start behavior, and how to switch on the live LLM.
+`render.yaml` is a ready blueprint for a free Render web service (Singapore);
+the instance type, region, and health check (`/api/health`) are all it needs.
 
 ---
 
@@ -335,10 +334,8 @@ and manual routes, cold-start behavior, and how to switch on the live LLM.
 - **All tests**: `pytest -q` (36 passing, offline)
 
 **Read next:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) (judge guide + rubric
-map) · [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) (3-minute video script) ·
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
-[`docs/GRAPH_MODEL.md`](docs/GRAPH_MODEL.md) (full catalogue) ·
-[`docs/BLOG.md`](docs/BLOG.md) (why we built it).
+map) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
+[`docs/GRAPH_MODEL.md`](docs/GRAPH_MODEL.md) (full catalogue).
 
 ## Configuration
 
@@ -405,11 +402,12 @@ batchzero/
 │  │  └─ demo/replay.py   # live transcript + benchmark
 │  └─ tests/
 ├─ frontend/              # React + cytoscape investigation console
-├─ docs/                  # submission guide, architecture, graph model, demo script, blog
-├─ scripts/               # PowerShell helpers (dev.ps1, run-demo.ps1)
+├─ docs/                  # submission guide, architecture, graph model
+├─ deploy/                # single-container image + entrypoint (FalkorDB + API + UI)
+├─ render.yaml            # hosted-demo blueprint (free Render web service)
 ├─ Makefile               # one-word targets for common tasks
 ├─ .github/workflows/ci.yml  # CI: backend tests + frontend build
-└─ docker-compose.yml
+└─ docker-compose.yml     # FalkorDB (+ Browser) for local development
 ```
 
 ---

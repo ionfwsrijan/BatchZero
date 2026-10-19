@@ -1,7 +1,6 @@
 # BatchZero — common tasks
 #
-# Windows users without `make` can use the PowerShell scripts in scripts/ or the
-# raw commands documented in README.md.
+# The raw commands are documented in README.md.
 
 .PHONY: help falkordb install seed replay benchmark replay-live test api ui ui-build stack down
 
@@ -16,7 +15,7 @@ help:
 	@echo "  test          run the pytest suite"
 	@echo "  api           serve the API + built UI on :8000"
 	@echo "  ui / ui-build run the dev server / build the UI"
-	@echo "  stack / down  run / stop the whole docker stack"
+	@echo "  stack / down  start / stop FalkorDB"
 
 falkordb:
 	docker compose up -d falkordb
@@ -49,7 +48,8 @@ ui-build:
 	cd frontend && npm install && npm run build
 
 stack:
-	docker compose up --build -d
+	docker compose -f docker-compose.yml up -d falkordb
+	cd backend && python -m batchzero.seed --reset
 
 down:
 	docker compose down
