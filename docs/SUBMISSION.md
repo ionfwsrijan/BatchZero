@@ -1,6 +1,7 @@
 # BatchZero — Submission Guide & Rubric Map
 
 **Graph Hacks 2026 · FalkorDB track · team ApexCoders**
+<!-- Last updated: 23 October 2026 -->
 
 This document is the judge-facing index. It says what BatchZero is, how to run
 it in one minute, where every requirement is satisfied, and how to verify each
@@ -160,6 +161,31 @@ Or open the FalkorDB Browser at `http://localhost:3000` and run the queries from
 
 ---
 
+## Limitations & honest framing
+
+BatchZero is a working prototype benchmarked on a synthetic fixture. We would
+rather state its limits plainly than let a reviewer discover them:
+
+- **The outbreak is synthetic.** *Port Meridian* is a hand-built, internally
+  consistent fixture (134 nodes / 197 edges). The 3/3 benchmark measures
+  **determinism and correctness on that fixture** — the same input always
+  produces the same traceable answer — not epidemiological validity on real
+  public-health data. The graph engineering under test (traversal, tie-breaking
+  by genomic distance, temporal rejection, provenance) is fixture-independent.
+- **The default deployment uses the deterministic provider.** `LLM_PROVIDER=mock`
+  on the live instance gives every visitor the same reproducible run with no API
+  key; a key swaps in `GroqLLM` over the same tool loop.
+- **The live instance is a free tier.** It sleeps after ~15 minutes idle, so the
+  first request can take ~60s; it reseeds on boot and is never left broken.
+- **The UI is intentionally dense.** It is an operations console, not a consumer
+  app; some labels are small at 100% browser zoom.
+
+What would make it production-grade: real (or de-identified public) outbreak
+data, an epidemiological review of the protocol, and human sign-off before any
+recall is filed.
+
+---
+
 ## Metrics (from `--benchmark`)
 
 | Metric | Value |
@@ -185,6 +211,7 @@ batchzero/
 ├─ docs/
 │  ├─ GRAPH_MODEL.md         # full node/relationship catalogue + ER diagram
 │  ├─ ARCHITECTURE.md        # layered design + sequence diagrams
+│  ├─ demo.mp4               # 90s, 4K @ 60fps demo of the working project
 │  └─ SUBMISSION.md          # this file — judge guide + rubric map
 ├─ backend/                  # FastAPI + FalkorDB + MCP + agent runtime
 │  └─ batchzero/  tests/  pyproject.toml

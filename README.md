@@ -384,6 +384,22 @@ deterministic plan).
 
 ---
 
+## Limitations
+
+- **Synthetic fixture.** *Port Meridian* is a hand-built, internally consistent
+  dataset (134 nodes / 197 edges). The 3/3 benchmark shows the run is
+  **deterministic and correct on that fixture**; it is not a claim of accuracy on
+  real public-health data. The graph logic under test is fixture-independent.
+- **Mock provider by default.** The live instance runs `LLM_PROVIDER=mock` so
+  every visitor gets the same reproducible trace with no API key; a key swaps in
+  `GroqLLM` over the same tool loop.
+- **Free-tier hosting.** The hosted instance sleeps after ~15 minutes idle
+  (~60s cold start) and reseeds itself on boot.
+- **Dense UI by design.** It is an operations console; some labels are small at
+  100% zoom.
+
+---
+
 ## Multi-tenant by construction
 
 FalkorDB stores each graph under its own key. BatchZero gives every agency a
