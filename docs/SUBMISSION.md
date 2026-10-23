@@ -7,6 +7,8 @@ This document is the judge-facing index. It says what BatchZero is, how to run
 it in one minute, where every requirement is satisfied, and how to verify each
 claim yourself.
 
+**Copy-paste answers for the submission form:** [`SUBMISSION_ANSWERS.md`](SUBMISSION_ANSWERS.md)
+
 ---
 
 ## 1 — TL;DR
@@ -212,7 +214,8 @@ batchzero/
 │  ├─ GRAPH_MODEL.md         # full node/relationship catalogue + ER diagram
 │  ├─ ARCHITECTURE.md        # layered design + sequence diagrams
 │  ├─ demo.mp4               # 90s, 4K @ 60fps demo of the working project
-│  └─ SUBMISSION.md          # this file — judge guide + rubric map
+│  ├─ SUBMISSION.md          # this file — judge guide + rubric map
+│  └─ SUBMISSION_ANSWERS.md  # copy-paste answers for the submission form
 ├─ backend/                  # FastAPI + FalkorDB + MCP + agent runtime
 │  └─ batchzero/  tests/  pyproject.toml
 ├─ frontend/                 # React + cytoscape console (Vite)
