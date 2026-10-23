@@ -15,7 +15,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM falkordb/falkordb:latest
+FROM falkordb/falkordb:v4.22.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \

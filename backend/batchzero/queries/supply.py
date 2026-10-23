@@ -60,7 +60,7 @@ def cold_chain(db: GraphDB, shipment_id: str) -> QueryOutcome:
         "       reduce(m = 0.0, x IN readings | CASE WHEN x.celsius > m THEN x.celsius ELSE m END) AS peak_c, "
         "       reduce(m = 999.0, x IN readings | CASE WHEN x.celsius < m THEN x.celsius ELSE m END) AS min_c, "
         "       size(readings) AS readings, "
-        "       [x IN readings WHERE x.celsius > 4.0 | x.at + ' @ ' + toString(x.celsius) + 'C'] AS excursions "
+        "       [x IN readings WHERE x.celsius > 4.0 | toString(x.at) + ' @ ' + toString(x.celsius) + 'C'] AS excursions "
     )
     return run_read(db, f"cold chain {shipment_id}", cypher, {"shipment_id": shipment_id})
 

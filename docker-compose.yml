@@ -1,6 +1,6 @@
 services:
   falkordb:
-    image: falkordb/falkordb:latest
+    image: falkordb/falkordb:v4.22.1
     container_name: batchzero-falkordb
     ports:
       - "6379:6379"   # FalkorDB (Redis protocol)
