@@ -21,6 +21,8 @@ as evidence attached to a hypothesis. Nothing is asserted without a traversal
 behind it.
 
 > **Graph Hacks 2026 · FalkorDB track · team ApexCoders**
+>
+> **Submission:** [judge guide](docs/SUBMISSION.md) · [form answers](docs/SUBMISSION_ANSWERS.md) · [demo video](docs/demo.mp4)
 
 ---
 
@@ -428,7 +430,7 @@ batchzero/
 │  │  └─ demo/replay.py   # live transcript + benchmark
 │  └─ tests/
 ├─ frontend/              # React + cytoscape investigation console
-├─ docs/                  # submission guide, architecture, graph model
+├─ docs/                  # judge guide + form answers, architecture, graph model
 ├─ deploy/                # single-container image + entrypoint (FalkorDB + API + UI)
 ├─ render.yaml            # hosted-demo blueprint (free Render web service)
 ├─ Makefile               # one-word targets for common tasks
