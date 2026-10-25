@@ -2,7 +2,7 @@
 #
 # The raw commands are documented in README.md.
 
-.PHONY: help falkordb install seed replay benchmark replay-live test api ui ui-build stack down
+.PHONY: help falkordb install seed replay benchmark replay-live test verify api ui ui-build stack down
 
 help:
 	@echo "BatchZero targets:"
@@ -11,8 +11,9 @@ help:
 	@echo "  seed          reseed the Port Meridian fixture"
 	@echo "  replay        watch the full 4-role investigation"
 	@echo "  replay-live   same, but drive the loop with the live LLM"
-	@echo "  benchmark     correctness + latency over 3 clean runs"
+	@echo "  benchmark     correctness + latency over 3 clean runs (fails on a miss)"
 	@echo "  test          run the pytest suite"
+	@echo "  verify        seed + test + benchmark gate, i.e. what CI runs"
 	@echo "  api           serve the API + built UI on :8000"
 	@echo "  ui / ui-build run the dev server / build the UI"
 	@echo "  stack / down  start / stop FalkorDB"
@@ -37,6 +38,11 @@ benchmark:
 
 test:
 	cd backend && pytest -q
+
+# Mirrors CI: seed the fixture, run the suite, then require the benchmark to
+# identify the source on every run.
+verify: seed test
+	cd backend && python -m batchzero.demo.replay --benchmark 2 --tenant batchzero_verify
 
 api:
 	cd backend && python -m batchzero.api.app

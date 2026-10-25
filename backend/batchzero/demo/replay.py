@@ -5,13 +5,16 @@ against FalkorDB and prints a live transcript — every role, every MCP tool cal
 every hypothesis upgrade — so the result is reproducible from a clean clone.
 
 ``python -m batchzero.demo.replay --benchmark 3`` runs it several times and
-prints correctness/latency metrics (handy for the submission notes).
+prints correctness/latency metrics (handy for the submission notes). It exits
+non-zero unless every run identifies the source and refutes the decoy, so CI
+can use it as a regression gate.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 import time
 from typing import Any
 
@@ -75,14 +78,17 @@ async def run_once(tenant: str, fresh: bool = True) -> tuple[Any, float]:
     return run, (time.perf_counter() - start) * 1000.0
 
 
-async def benchmark(tenant: str, runs: int) -> None:
+async def benchmark(tenant: str, runs: int) -> int:
+    """Run the investigation ``runs`` times; return the number of correct runs."""
     print(f"Running {runs} investigation(s) against '{tenant}'…\n")
     header = f"{'run':>3}  {'tools':>5}  {'ms':>7}  {'main':>10}  {'decoy':>10}  {'recall':>6}  {'tasks':>5}  ok"
     print(header)
     print("-" * len(header))
     confirmed = 0
+    latencies: list[float] = []
     for i in range(1, runs + 1):
         run, ms = await run_once(tenant)
+        latencies.append(ms)
         hyps = run.state["hypotheses"]
         main = next((h for h in hyps if "MG-4417" in (h.get("statement") or "")), {})
         decoy = next((h for h in hyps if "LET-2210" in (h.get("statement") or "")), {})
@@ -96,6 +102,11 @@ async def benchmark(tenant: str, runs: int) -> None:
         )
     print("-" * len(header))
     print(f"correct source identification: {confirmed}/{runs}")
+    ordered = sorted(latencies)
+    p50 = ordered[len(ordered) // 2]
+    p95 = ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
+    print(f"latency: p50 {p50:.0f} ms · p95 {p95:.0f} ms")
+    return confirmed
 
 
 def main() -> None:
@@ -107,7 +118,13 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.benchmark:
-        asyncio.run(benchmark(args.tenant, args.benchmark))
+        if args.benchmark < 1:
+            parser.error("--benchmark must be at least 1")
+        correct = asyncio.run(benchmark(args.tenant, args.benchmark))
+        if correct < args.benchmark:
+            raise SystemExit(
+                f"benchmark gate failed: {correct}/{args.benchmark} runs identified the source"
+            )
     else:
         asyncio.run(replay(args.tenant, fresh=not args.keep, live=args.live))
 

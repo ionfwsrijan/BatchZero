@@ -51,6 +51,11 @@ jobs:
       - name: Tests
         working-directory: backend
         run: pytest -q
+      # Correctness regression gate: exits non-zero unless every run names the
+      # true source (MG-4417) and refutes the lettuce decoy (LET-2210).
+      - name: Benchmark gate (2 clean runs)
+        working-directory: backend
+        run: python -m batchzero.demo.replay --benchmark 2 --tenant batchzero_ci_bench
 
   frontend:
     name: frontend (build)
