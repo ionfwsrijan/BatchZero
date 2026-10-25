@@ -6,10 +6,20 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Read-only token: CI only checks out the repo, so it never needs write access.
+permissions:
+  contents: read
+
+# Superseded runs on the same ref are pointless (and burn free runner minutes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     name: backend (tests against live FalkorDB)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       falkordb:
         image: falkordb/falkordb:v4.22.1
@@ -45,6 +55,7 @@ jobs:
   frontend:
     name: frontend (build)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,3 +69,14 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+
+  container:
+    name: container (deploy image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      # The Render deployment ships deploy/Dockerfile, so a broken build must
+      # fail CI rather than the live service. Nothing is pushed to a registry.
+      - name: Build single-container image
+        run: docker build -f deploy/Dockerfile -t batchzero:ci .
