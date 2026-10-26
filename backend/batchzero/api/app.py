@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, AsyncIterator
+from typing import Annotated, Any, AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from .. import tools
@@ -26,26 +26,41 @@ from ..seed import seed_ops_tenant
 
 settings = get_settings()
 
+# A tenant is a FalkorDB graph key supplied by the client, so keep it to a
+# conservative character set and length instead of passing arbitrary strings
+# through to the database.
+TENANT_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+TenantQuery = Annotated[str | None, Query(pattern=TENANT_PATTERN)]
+
 
 class InvestigationRequest(BaseModel):
     message: str | None = None
     title: str | None = None
-    tenant: str | None = None
+    tenant: str | None = Field(None, pattern=TENANT_PATTERN)
     roles: list[str] | None = None
 
 
 class ChatRequest(BaseModel):
     message: str
-    tenant: str | None = None
+    tenant: str | None = Field(None, pattern=TENANT_PATTERN)
 
 
 class SearchRequest(BaseModel):
     query: str
-    tenant: str | None = None
+    tenant: str | None = Field(None, pattern=TENANT_PATTERN)
 
 
 def _graph(tenant: str | None = None) -> GraphDB:
     return GraphDB(tenant or settings.tenant_graph)
+
+
+def _probe(tenant: str | None = None) -> tuple[bool, str]:
+    """Return ``(reachable, graph_name)`` without raising when FalkorDB is down."""
+    name = tenant or settings.tenant_graph
+    try:
+        return _graph(name).ping(), name
+    except Exception:
+        return False, name
 
 
 def _sse(events: AsyncIterator[dict[str, Any]]) -> EventSourceResponse:
@@ -95,14 +110,27 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    db = _graph()
+    """Liveness probe: always 200 so an orchestrator does not restart on a blink.
+
+    ``ok`` reflects the live graph connection; use ``/api/ready`` when a caller
+    should hold traffic until FalkorDB answers.
+    """
+    up, graph = _probe()
     return {
-        "ok": True,
-        "falkordb": db.ping(),
-        "graph": db.graph_name,
+        "ok": up,
+        "falkordb": up,
+        "graph": graph,
         "provider": settings.resolved_llm_provider,
         "model": settings.groq_model,
     }
+
+
+@app.get("/api/ready")
+def ready(response: Response) -> dict[str, Any]:
+    """Readiness probe: 503 while FalkorDB is unreachable."""
+    up, graph = _probe()
+    response.status_code = 200 if up else 503
+    return {"ready": up, "falkordb": up, "graph": graph}
 
 
 @app.get("/api/config")
@@ -124,13 +152,13 @@ def cases(pathogen: str = Query("Salmonella")) -> dict[str, Any]:
 
 
 @app.get("/api/investigations")
-def investigations(tenant: str | None = Query(None)) -> dict[str, Any]:
+def investigations(tenant: TenantQuery = None) -> dict[str, Any]:
     res = memory.list_investigations(_graph(tenant))
     return {"count": len(res.rows), "rows": res.rows}
 
 
 @app.get("/api/investigations/{inv_id}")
-def investigation_detail(inv_id: str, tenant: str | None = Query(None)) -> dict[str, Any]:
+def investigation_detail(inv_id: str, tenant: TenantQuery = None) -> dict[str, Any]:
     db = _graph(tenant)
     if not db.ro_query(
         "MATCH (i:Investigation {inv_id:$inv_id}) RETURN i.inv_id AS inv_id", {"inv_id": inv_id}
@@ -141,13 +169,16 @@ def investigation_detail(inv_id: str, tenant: str | None = Query(None)) -> dict[
 
 @app.get("/api/investigations/{inv_id}/graph")
 def investigation_graph(
-    inv_id: str, tenant: str | None = Query(None), hops: int = 3, limit: int = 400
+    inv_id: str,
+    tenant: TenantQuery = None,
+    hops: int = Query(3, ge=1, le=6),
+    limit: int = Query(400, ge=1, le=2000),
 ) -> dict[str, Any]:
     return memory.evidence_subgraph(_graph(tenant), inv_id, hops=hops, limit=limit)
 
 
 @app.get("/api/graph/summary")
-def graph_summary(tenant: str | None = Query(None)) -> dict[str, Any]:
+def graph_summary(tenant: TenantQuery = None) -> dict[str, Any]:
     return memory.graph_stats(_graph(tenant))
 
 
@@ -168,7 +199,7 @@ def search(req: SearchRequest) -> dict[str, Any]:
 
 
 @app.post("/api/seed")
-def seed(tenant: str | None = None) -> dict[str, Any]:
+def seed(tenant: TenantQuery = None) -> dict[str, Any]:
     db = _graph(tenant)
     db.delete_graph()
     seed_ops_tenant(db)

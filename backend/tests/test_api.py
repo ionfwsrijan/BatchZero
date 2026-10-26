@@ -29,8 +29,21 @@ def seeded():
 def test_health_and_config():
     health = client.get("/api/health").json()
     assert health["ok"] is True and health["falkordb"] is True
+    ready = client.get("/api/ready")
+    assert ready.status_code == 200 and ready.json()["ready"] is True
     cfg = client.get("/api/config").json()
     assert [r["key"] for r in cfg["roles"]] == ["intake", "cluster", "tracer", "briefing"]
+
+
+def test_invalid_tenant_and_traversal_params_are_rejected():
+    # Tenant names become FalkorDB graph keys: reject separators/spaces.
+    assert client.get("/api/investigations", params={"tenant": "bad tenant"}).status_code == 422
+    assert client.post("/api/search", json={"query": "MG-4417", "tenant": "../etc"}).status_code == 422
+    # Traversal depth/limit are bounded so one request cannot walk the graph.
+    graph = client.get("/api/investigations/INV-X/graph", params={"tenant": TENANT, "hops": 99})
+    assert graph.status_code == 422
+    graph = client.get("/api/investigations/INV-X/graph", params={"tenant": TENANT, "limit": 5000})
+    assert graph.status_code == 422
 
 
 def test_cases_and_search():
