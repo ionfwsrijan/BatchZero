@@ -111,7 +111,7 @@ class GraphDB:
                 return False
 
     def list_graphs(self) -> list[str]:
-        return list(self.client.list())
+        return list(self.client.list_graphs())
 
     def delete_graph(self) -> None:
         try:

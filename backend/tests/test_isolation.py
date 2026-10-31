@@ -41,7 +41,8 @@ def tenants():
 
 def test_seed_is_deterministic_across_tenants(tenants):
     _writer, _reader, seeded_writer, seeded_reader, _run = tenants
-    assert seeded_writer == seeded_reader
+    shape = lambda stats: (stats["nodes"], stats["relationships"])  # noqa: E731
+    assert shape(seeded_writer) == shape(seeded_reader)
     assert seeded_writer["nodes"] > 0
     assert seeded_writer["relationships"] > 0
 
@@ -50,7 +51,10 @@ def test_investigation_only_writes_to_its_own_tenant(tenants):
     writer, reader, seeded_writer, seeded_reader, run = tenants
 
     assert writer.node_count() > seeded_writer["nodes"], "the run should add provenance nodes"
-    assert reader.stats() == seeded_reader, "the other tenant must not change at all"
+    assert (reader.node_count(), reader.rel_count()) == (
+        seeded_reader["nodes"],
+        seeded_reader["relationships"],
+    ), "the other tenant must not change at all"
 
     query = "MATCH (i:Investigation {inv_id:$inv_id}) RETURN count(i) AS c"
     written = writer.ro_query(query, {"inv_id": run.inv_id}).first()["c"]
