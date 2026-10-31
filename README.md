@@ -1,7 +1,7 @@
 # BatchZero
 
 [![CI](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml/badge.svg)](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-36%20passing-brightgreen)](backend/tests)
+[![tests](https://img.shields.io/badge/tests-40%20passing-brightgreen)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20SSE-009688)](backend/batchzero/api/app.py)
 [![React](https://img.shields.io/badge/UI-React%20%2B%20cytoscape-61dafb)](frontend)
@@ -39,7 +39,7 @@ behind it.
 | **Graph** | 26 labels · 40 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
 | **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
 | **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
-| **Tests** | 36 passing offline against a live FalkorDB |
+| **Tests** | 40 tests offline + benchmark gate in CI against a live FalkorDB |
 
 ---
 
@@ -283,7 +283,8 @@ RETURN h.statement, e.summary, tc.tool, tc.ms, s.role
 ## Quickstart
 
 Already have `make`? One line does steps 1–4 (`make falkordb install seed
-replay`), and `make api` serves the API + UI. Otherwise:
+replay`), and `make api` serves the API + UI. `make verify` runs exactly what CI
+does — seed, full test suite, then the benchmark gate. Otherwise:
 
 ```bash
 # 1 — start FalkorDB (Redis protocol + FalkorDB Browser on :3000)
@@ -341,9 +342,11 @@ to wake (it reseeds itself on boot).
 
 - **Watch live investigation**: `python -m batchzero.demo.replay` (no key)
 - **Benchmark (reproducible)**: `python -m batchzero.demo.replay --benchmark 3`
+  — exits non-zero if any run misses the source
+- **Verify like CI**: `make verify` (seed + `pytest` + benchmark gate)
 - **Live LLM mode**: `python -m batchzero.demo.replay --live` (falls back gracefully on 429)
 - **Run full API + UI**: `python -m batchzero.api.app` (`http://localhost:8000`)
-- **All tests**: `pytest -q` (36 passing, offline)
+- **All tests**: `pytest -q` (40 passing, offline)
 
 **Read next:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) (judge guide + rubric
 map) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
@@ -379,10 +382,42 @@ pytest -q
 | `test_queries.py` | the query layer returns the *investigative* answer (correct lot, correct tie, temporal rejection) |
 | `test_mcp.py` | role-scoped tool discovery over a real stdio MCP subprocess + provenance logging |
 | `test_agent.py` | the full four-role run: main hypothesis confirmed, decoy refuted, evidence tool-attributed, recall + tasks filed |
-| `test_api.py` | read endpoints + the SSE investigation stream |
+| `test_api.py` | read endpoints, input validation, the readiness probe, and the SSE investigation stream |
+| `test_isolation.py` | cross-tenant writes leave the other graph untouched; seeding is deterministic |
 
-All 36 tests run offline against a live FalkorDB (the LLM is pinned to the
-deterministic plan).
+All 40 tests run offline against a live FalkorDB (the LLM is pinned to the
+deterministic plan). CI also runs `--benchmark 2` as a gate: it fails the build
+if a run does not confirm `MG-4417` and refute `LET-2210`.
+
+---
+
+## Troubleshooting & compatibility
+
+**FalkorDB is pinned to `v4.22.1`** in `docker-compose.yml`, `.github/workflows/ci.yml`,
+and `deploy/Dockerfile`. The upstream `latest` tag moved to `6.0.3` on 22 Oct 2026
+and introduced breaking changes (datetime arithmetic in projections and different
+label-propagation grouping) that broke the cold-chain and cluster queries. Keep
+the three references in sync, and run `make verify` after changing the pin — the
+benchmark gate catches answer regressions, not just crashes.
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `Connection refused` when seeding / testing | FalkorDB is not up yet | `docker compose up -d falkordb`, wait for `redis-cli ping` |
+| `port is already allocated` | Another process owns 6379/3000 | stop it, or change the host side of the port mapping |
+| Tests pass but the UI shows stale data | old tenant from an earlier run | `python -m batchzero.seed --reset` |
+| Hosted demo hangs ~60s on first request | free Render instance slept | wait for the cold start; it reseeds on boot |
+| `429` from the live model | Groq free-tier limit | nothing — the agent falls back to the deterministic plan |
+| `FalkorDB did not become ready` in the container | engine did not answer within 60s | check `docker logs`; the entrypoint exits non-zero on purpose |
+
+`GET /api/health` is a **liveness** probe: it always answers `200` and reports
+`"ok": false` when the graph is unreachable, so a momentary blip does not restart
+the container. `GET /api/ready` is the **readiness** probe: it returns `503`
+until FalkorDB answers. Render watches `/api/health`; put `/api/ready` behind a
+load balancer or `kubectl` readiness check when you need traffic held.
+
+Windows: the `make` targets need GNU make (WSL, Git Bash, or `choco install
+make`). Every target is a single command shown in `make help`, so you can run it
+directly from PowerShell if you prefer.
 
 ---
 
@@ -408,7 +443,9 @@ FalkorDB stores each graph under its own key. BatchZero gives every agency a
 graph: `pmph_ops` (the live case file) and `training_academy` (an isolated
 sandbox). The tenant name is threaded through the DB layer and injected into
 each MCP subprocess via `BATCHZERO_TENANT`, so a session can never read across
-tenants.
+tenants. `tests/test_isolation.py` proves the write side too: it seeds two
+tenants, runs an investigation in one, and asserts the other is unchanged and
+contains none of the new nodes.
 
 ---
 

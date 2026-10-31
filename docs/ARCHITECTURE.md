@@ -198,5 +198,7 @@ tasks, brief).
 `test_queries` asserts investigative answers; `test_mcp` proves role-scoping and
 provenance over a real subprocess; `test_agent` runs the whole investigation and
 checks the science (confirmed/refuted, evidence attribution, recall scope);
-`test_api` covers the HTTP + SSE surface. `demo/replay.py --benchmark N`
-reproduces correctness and latency from a clean graph.
+`test_api` covers the HTTP/SSE surface and input validation; `test_isolation`
+proves a run cannot write into another tenant. `demo/replay.py --benchmark N`
+reproduces correctness and latency from a clean graph and exits non-zero if any
+run misses, so CI can gate on it.

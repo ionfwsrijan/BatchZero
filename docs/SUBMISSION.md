@@ -34,7 +34,8 @@ single lot.
 
 ```bash
 python -m batchzero.demo.replay            # watch the whole investigation
-python -m batchzero.demo.replay --benchmark 3   # correctness + latency
+python -m batchzero.demo.replay --benchmark 3   # correctness + latency (fails on a miss)
+make verify                               # exactly what CI runs: seed + tests + gate
 ```
 
 **Or run the whole stack as one container** (FalkorDB included, no external DB):
@@ -52,11 +53,11 @@ python -m batchzero.demo.replay --benchmark 3   # correctness + latency
 | **Architecture diagram** | `README.md` → *Architecture*; `docs/ARCHITECTURE.md` (Mermaid + prose) | 5 layers: db → queries → tools → MCP → agent/API |
 | **Use graph algorithms** | `algo.betweenness`, `algo.labelPropagation`, `algo.SPpaths`, `algo.WCC` | `queries/supply.py:121`, `queries/epidemiology.py:175` |
 | **Graph is load-bearing** | Removing FalkorDB makes 4 core capabilities *impossible*, not slow | `README.md` → *Why this is a graph problem* |
-| **Multi-tenant** | One FalkorDB graph per agency (`pmph_ops`, `training_academy`) | `config.py`, `BATCHZERO_TENANT` injected per MCP subprocess |
+| **Multi-tenant** | One FalkorDB graph per agency (`pmph_ops`, `training_academy`) | `config.py`, `BATCHZERO_TENANT` injected per MCP subprocess, `tests/test_isolation.py` |
 | **Reproducible demo** | Deterministic plan drives the same loop; no key required | `agent/scripts.py`, `tests/conftest.py` pins `LLM_PROVIDER=mock` |
 | **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
-| **Tests** | 36 tests offline against a live FalkorDB | `backend/tests/` |
+| **Tests** | 40 tests offline against a live FalkorDB, plus a benchmark gate in CI | `backend/tests/` |
 | **Live deployment** | Running at <https://batchzero.onrender.com/> — one container (FalkorDB + API + built UI), free Render web service from `render.yaml` | `deploy/Dockerfile`, `deploy/start.sh`, `render.yaml` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
 | **Explainable output** | Provenance chain on every claim | `Hypothesis→Evidence→ToolCall→Session` |
@@ -149,8 +150,9 @@ Or open the FalkorDB Browser at `http://localhost:3000` and run the queries from
 ## Reproducibility & determinism
 
 - **Same answer, every time.** `demo/replay.py` defaults to the deterministic
-  plan; `--benchmark N` re-seeds a clean graph between runs and reports
-  correctness + latency.
+  plan; `--benchmark N` re-seeds a clean graph between runs, reports correctness
+  + p50/p95 latency, and exits non-zero if any run misses the source. CI uses it
+  as a regression gate.
 - **Tests are offline and hermetic.** `tests/conftest.py` pins `LLM_PROVIDER=mock`
   before importing the package and forks each suite onto its own seeded tenant
   (`batchzero_query_test`, `batchzero_mcp_test`), so results never depend on a
@@ -200,7 +202,7 @@ recall is filed.
 | Recall scope | `['MG-4417']` |
 | Tasks created | 3 (inspection + follow-up) |
 | Fixture size | 134 nodes / 197 edges |
-| Tests | 36 passing |
+| Tests | 40 passing, plus a CI benchmark gate |
 | Per-run latency (deterministic, full 4 roles) | 4.9 – 5.5 s |
 
 ---
