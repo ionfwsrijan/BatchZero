@@ -33,11 +33,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN rm -rf /var/lib/falkordb/browser /usr/local/bin/node
 
 # The FalkorDB base image strips debconf's frontend binaries while leaving the
-# package marked installed. ca-certificates' post-install script needs them, so
-# reinstall debconf before any apt upgrade that may reconfigure ca-certificates.
+# package marked installed, so any apt operation that *reconfigures*
+# ca-certificates fails. Install Python with --no-upgrade so the already-present
+# CA bundle is left alone (its post-install script is the thing that needs
+# debconf); this keeps the build independent of the stripped debconf.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --reinstall debconf \
-    && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
+    && apt-get install -y --no-install-recommends --no-upgrade python3 python3-venv \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip
