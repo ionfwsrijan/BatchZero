@@ -32,8 +32,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # serves the BatchZero UI instead, so drop it to keep the image small.
 RUN rm -rf /var/lib/falkordb/browser /usr/local/bin/node
 
+# The FalkorDB base image strips debconf, but ca-certificates' post-install
+# script calls it; without it an apt upgrade fails the build.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
+    && apt-get install -y --no-install-recommends debconf python3 python3-venv ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip
