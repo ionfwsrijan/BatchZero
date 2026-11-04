@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from .. import tools
-from ..agent import ROLES, ROLE_LABEL, run_followup, run_investigation
+from ..agent import ROLE_LABEL, ROLES, run_followup, run_investigation
 from ..config import get_settings
 from ..db import GraphDB
 from ..queries import epidemiology, memory

@@ -6,11 +6,10 @@ that returns the wrong source is worse than one that fails. The ``db`` fixture
 are stable regardless of what other tests write to the live graph.
 """
 
-import pytest
 
-from batchzero.db import GraphDB
 from batchzero.config import get_settings
-from batchzero.queries import actions, epidemiology, memory, protocol, supply
+from batchzero.db import GraphDB
+from batchzero.queries import actions, epidemiology, protocol, supply
 
 
 def test_recent_cases_lists_salmonella_cluster(db):

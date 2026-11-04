@@ -2,12 +2,13 @@
 #
 # The raw commands are documented in README.md.
 
-.PHONY: help falkordb install seed replay benchmark replay-live test verify api ui ui-build stack down
+.PHONY: help falkordb install lint seed replay benchmark replay-live test verify api ui ui-build stack down
 
 help:
 	@echo "BatchZero targets:"
 	@echo "  falkordb      start FalkorDB only"
 	@echo "  install       install backend dev deps (editable)"
+	@echo "  lint          run the ruff gate (correctness + import order)"
 	@echo "  seed          reseed the Port Meridian fixture"
 	@echo "  replay        watch the full 4-role investigation"
 	@echo "  replay-live   same, but drive the loop with the live LLM"
@@ -23,6 +24,9 @@ falkordb:
 
 install:
 	cd backend && pip install -e ".[dev]"
+
+lint:
+	cd backend && ruff check .
 
 seed:
 	cd backend && python -m batchzero.seed --reset

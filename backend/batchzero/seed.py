@@ -342,9 +342,9 @@ def seed_ops_tenant(db: GraphDB) -> dict[str, Any]:
 
     # supply chain
     _merge_edges(db, "Lot", "lot_id", "SUPPLIED_BY", "Supplier", "supplier_id",
-                 [(l["lot_id"], l["supplier_id"]) for l in LOTS if l["supplier_id"]])
+                 [(lot["lot_id"], lot["supplier_id"]) for lot in LOTS if lot["supplier_id"]])
     _merge_edges(db, "Lot", "lot_id", "ORIGINATES_FROM", "Farm", "farm_id",
-                 [(l["lot_id"], l["farm_id"]) for l in LOTS if l["farm_id"]])
+                 [(lot["lot_id"], lot["farm_id"]) for lot in LOTS if lot["farm_id"]])
     _merge_edges(db, "Lot", "lot_id", "SHIPPED_IN", "Shipment", "shipment_id", [
         ("MG-4417", "SH-2291"), ("CIL-3320", "SH-2291"),
         ("LET-2210", "SH-2280"), ("SPR-88", "SH-2280"),

@@ -51,6 +51,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+      # Fast, deterministic gate: catches undefined names, unused imports and
+      # unsorted imports before the slower graph-backed suite runs.
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check .
       - name: Seed graph
         working-directory: backend
         run: python -m batchzero.seed --reset

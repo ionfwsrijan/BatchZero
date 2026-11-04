@@ -144,8 +144,8 @@ def _serialize(value: Any) -> Any:
     """
     import datetime as _dt
 
-    from falkordb.node import Node
     from falkordb.edge import Edge
+    from falkordb.node import Node
 
     if isinstance(value, (_dt.date, _dt.datetime, _dt.time)):
         return value.isoformat()

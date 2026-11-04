@@ -3,9 +3,9 @@
 from .llm import BaseLLM, GroqLLM, LLMResponse, MockLLM, ToolCall, make_llm
 from .loop import RoleResult, run_role_session
 from .orchestrator import (
-    InvestigationRun,
-    ROLES,
     ROLE_LABEL,
+    ROLES,
+    InvestigationRun,
     route_role,
     run_followup,
     run_investigation,

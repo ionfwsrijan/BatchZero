@@ -119,8 +119,6 @@ def _arg_model(name: str, schema: dict) -> type[ArgModelBase]:
             fields[prop] = (py_type | None, None)
     return create_model(f"{name}Arguments", __base__=ArgModelBase, **fields)
 
-    return server, ctx
-
 
 async def _run() -> None:
     server, _ctx = build_server()

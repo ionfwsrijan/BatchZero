@@ -60,7 +60,6 @@ def _intake_final(h: dict[str, Any]) -> str:
     onset_hi = curve[-1]["onset"] if curve else "?"
     ings = _rows(h, "find_common_ingredients")[:3]
     facs = _rows(h, "find_common_facilities")
-    sup = _first(h, "find_common_suppliers")
     clusters = _rows(h, "cluster_by_exposure")
     return f"""## Intake — Port Meridian gastrointestinal cluster
 
@@ -111,7 +110,6 @@ def _cluster_final(h: dict[str, Any]) -> str:
     exposures = _rows(h, "case_exposures")
     trap = next((e for e in exposures if e.get("meal_after_onset")), None)
     main = _hyp_id(h, "MG-4417")
-    decoy = _hyp_id(h, "LET-2210")
     hyps = _report(h).get("hypotheses", [])
     main_hyp = next((x for x in hyps if x.get("hyp_id") == main), {})
     return f"""## Cluster analysis — source attribution
@@ -141,11 +139,6 @@ cold chain. Confidence on the microgreens hypothesis is **{main_hyp.get('confide
 
 
 def cluster_plan(inv_id: str) -> list[ScriptStep]:
-    main_statement = (
-        f"Microgreens Mix lot {LOT} (GreenLeaf Distributors, Sunrise Hydroponics) "
-        "is the outbreak source"
-    )
-    decoy_statement = "Romaine lettuce lot LET-2210 (Valley Field Farms) is the source"
     return [
         ScriptStep("investigation_report", lambda h: {"inv_id": inv_id}),
         ScriptStep("cluster_by_exposure", {"pathogen": "Salmonella"}),
@@ -325,7 +318,6 @@ def _briefing_final(h: dict[str, Any]) -> str:
     recall = (h.get("draft_recall") or {}).get("recall") or {}
     facts = _rows(h, "recall_facts")
     report = _report(h)
-    inv = report.get("investigation", {})
     hyps = report.get("hypotheses", [])
     tasks = report.get("tasks", [])
     confirmed = next((x for x in hyps if x.get("status") == "confirmed"), hyps[0] if hyps else {})
