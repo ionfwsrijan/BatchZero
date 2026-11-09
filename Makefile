@@ -2,7 +2,7 @@
 #
 # The raw commands are documented in README.md.
 
-.PHONY: help falkordb install lint seed replay benchmark replay-live test verify api ui ui-build stack down
+.PHONY: help falkordb install lint seed replay benchmark replay-live test verify api ui ui-build docker stack down
 
 help:
 	@echo "BatchZero targets:"
@@ -17,6 +17,7 @@ help:
 	@echo "  verify        seed + test + benchmark gate, i.e. what CI runs"
 	@echo "  api           serve the API + built UI on :8000"
 	@echo "  ui / ui-build run the dev server / build the UI"
+	@echo "  docker        build the single-container deploy image"
 	@echo "  stack / down  start / stop FalkorDB"
 
 falkordb:
@@ -56,6 +57,9 @@ ui:
 
 ui-build:
 	cd frontend && npm install && npm run build
+
+docker:
+	docker build -f deploy/Dockerfile -t batchzero .
 
 stack:
 	docker compose -f docker-compose.yml up -d falkordb

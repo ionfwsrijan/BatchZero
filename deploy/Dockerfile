@@ -55,4 +55,11 @@ RUN sed -i 's/\r$//' /usr/local/bin/batchzero-start \
     && chmod +x /usr/local/bin/batchzero-start
 
 EXPOSE 8000
+
+# Liveness probe for orchestrators and `docker ps`. /api/health always returns
+# 200 and never touches the graph, so a slow seed cannot mark a healthy
+# container as failed; /api/ready is the graph-backed readiness check.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT', '8000')}/api/health\", timeout=4).read()" || exit 1
+
 ENTRYPOINT ["/usr/local/bin/batchzero-start"]

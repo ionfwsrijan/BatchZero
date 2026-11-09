@@ -326,9 +326,15 @@ The entrypoint starts the graph engine, seeds both tenants on boot, then serves
 the app on `$PORT`.
 
 ```bash
+make docker                                   # same build, shorter to type
 docker build -f deploy/Dockerfile -t batchzero .
 docker run --rm -p 8000:8000 batchzero        # http://localhost:8000
 ```
+
+The image declares a `HEALTHCHECK` against `/api/health` (liveness, always
+`200`), so `docker ps` reports `healthy` once the API is serving. `/api/ready`
+is the graph-backed readiness probe: it returns `503` until FalkorDB answers,
+which is what a load balancer should gate traffic on.
 
 `render.yaml` is a ready blueprint for a free Render web service (Singapore);
 the instance type, region, and health check (`/api/health`) are all it needs.
