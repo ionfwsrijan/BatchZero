@@ -14,7 +14,7 @@ from typing import Annotated, Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
 from .. import tools
@@ -32,21 +32,41 @@ settings = get_settings()
 TENANT_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
 TenantQuery = Annotated[str | None, Query(pattern=TENANT_PATTERN)]
 
+# Request bodies end up in prompts, graph queries and (for titles) the stored
+# investigation. Cap them so a single request cannot bloat memory or the graph.
+MAX_MESSAGE_CHARS = 4_000
+MAX_TITLE_CHARS = 200
+MAX_QUERY_CHARS = 200
+
 
 class InvestigationRequest(BaseModel):
-    message: str | None = None
-    title: str | None = None
+    message: str | None = Field(None, max_length=MAX_MESSAGE_CHARS)
+    title: str | None = Field(None, max_length=MAX_TITLE_CHARS)
     tenant: str | None = Field(None, pattern=TENANT_PATTERN)
-    roles: list[str] | None = None
+    roles: list[str] | None = Field(None, max_length=len(ROLES))
+
+    @field_validator("roles")
+    @classmethod
+    def _known_roles(cls, roles: list[str] | None) -> list[str] | None:
+        """Reject typos instead of silently running a partial investigation."""
+        if roles is None:
+            return None
+        unknown = sorted(set(roles) - set(ROLES))
+        if unknown:
+            raise ValueError(
+                f"unknown role(s): {', '.join(unknown)}; expected a subset of {', '.join(ROLES)}"
+            )
+        # Preserve request order but drop duplicates (each role runs once).
+        return list(dict.fromkeys(roles))
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
     tenant: str | None = Field(None, pattern=TENANT_PATTERN)
 
 
 class SearchRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=MAX_QUERY_CHARS)
     tenant: str | None = Field(None, pattern=TENANT_PATTERN)
 
 

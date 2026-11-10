@@ -11,7 +11,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from batchzero.api.app import app
+from batchzero.api.app import InvestigationRequest, app
 from batchzero.db import GraphDB
 from batchzero.seed import seed_ops_tenant
 
@@ -88,3 +88,51 @@ def test_investigation_stream_and_detail():
 def test_missing_investigation_404():
     resp = client.get("/api/investigations/INV-DOES-NOT-EXIST", params={"tenant": TENANT})
     assert resp.status_code == 404
+
+
+def test_investigation_roles_are_validated_and_deduplicated():
+    resp = client.post(
+        "/api/investigations/stream", json={"tenant": TENANT, "roles": ["intake", "intkae"]}
+    )
+    assert resp.status_code == 422
+    assert "unknown role" in resp.text
+    assert InvestigationRequest(roles=["intake", "intake", "cluster"]).roles == ["intake", "cluster"]
+
+
+def test_request_bodies_are_bounded():
+    too_long = "x" * 4_001
+    assert (
+        client.post(
+            "/api/investigations/stream", json={"tenant": TENANT, "message": too_long}
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/investigations/stream", json={"tenant": TENANT, "title": "x" * 201}
+        ).status_code
+        == 422
+    )
+    assert client.post("/api/search", json={"query": "", "tenant": TENANT}).status_code == 422
+    assert (
+        client.post("/api/search", json={"query": "x" * 201, "tenant": TENANT}).status_code == 422
+    )
+    assert (
+        client.post(
+            "/api/investigations/INV-X/chat/stream", json={"tenant": TENANT, "message": ""}
+        ).status_code
+        == 422
+    )
+
+
+def test_health_is_liveness_and_ready_is_readiness(monkeypatch):
+    # Simulate FalkorDB being unreachable: liveness stays 200, readiness fails.
+    monkeypatch.setattr("batchzero.api.app._probe", lambda tenant=None: (False, "pmph_ops"))
+
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    assert health.json()["ok"] is False and health.json()["falkordb"] is False
+
+    ready = client.get("/api/ready")
+    assert ready.status_code == 503
+    assert ready.json() == {"ready": False, "falkordb": False, "graph": "pmph_ops"}
