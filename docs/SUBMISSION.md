@@ -35,7 +35,7 @@ single lot.
 ```bash
 python -m batchzero.demo.replay            # watch the whole investigation
 python -m batchzero.demo.replay --benchmark 3   # correctness + latency (fails on a miss)
-make verify                               # exactly what CI runs: seed + tests + gate
+make verify                               # CI's functional gate: seed + tests + benchmark
 ```
 
 **Or run the whole stack as one container** (FalkorDB included, no external DB):
@@ -57,7 +57,7 @@ make verify                               # exactly what CI runs: seed + tests +
 | **Reproducible demo** | Deterministic plan drives the same loop; no key required | `agent/scripts.py`, `tests/conftest.py` pins `LLM_PROVIDER=mock` |
 | **Demo video** | `docs/demo.mp4` — 90s, 4K @ 60fps: architecture, data model, live UI investigation, benchmark + test output | Recorded end-to-end against the running stack |
 | **Live LLM path** | Groq (OpenAI-compatible) with automatic deterministic fallback | `agent/llm.py` → `GroqLLM`, `FallbackLLM`, `make_llm` |
-| **Tests** | 40 tests offline against a live FalkorDB, plus a benchmark gate in CI | `backend/tests/` |
+| **Tests** | 48 tests offline against a live FalkorDB, plus a benchmark gate in CI | `backend/tests/` |
 | **Live deployment** | Running at <https://batchzero.onrender.com/> — one container (FalkorDB + API + built UI), free Render web service from `render.yaml` | `deploy/Dockerfile`, `deploy/start.sh`, `render.yaml` |
 | **Agentic / tool use** | Real MCP stdio subprocesses, role-scoped tool-sets | `mcp_server.py`, `mcp_client.py`, `tools.py` |
 | **Explainable output** | Provenance chain on every claim | `Hypothesis→Evidence→ToolCall→Session` |
@@ -157,6 +157,9 @@ Or open the FalkorDB Browser at `http://localhost:3000` and run the queries from
   before importing the package and forks each suite onto its own seeded tenant
   (`batchzero_query_test`, `batchzero_mcp_test`), so results never depend on a
   network or on other tests.
+- **CI gates on lint and both Python versions.** `ruff check .` runs before the
+  suite, and the backend job is a 3.11/3.12 matrix (the `pyproject` floor and the
+  deploy image) with `fail-fast: false`, so one version cannot mask the other.
 - **The live path is a swap, not a rewrite.** `make_llm` returns `GroqLLM` when a
   key exists and the deterministic plan otherwise; both drive the *same* loop
   (`agent/loop.py`). A `FallbackLLM` catches provider errors (e.g. free-tier
@@ -202,7 +205,7 @@ recall is filed.
 | Recall scope | `['MG-4417']` |
 | Tasks created | 3 (inspection + follow-up) |
 | Fixture size | 134 nodes / 197 edges |
-| Tests | 40 passing, plus a CI benchmark gate |
+| Tests | 48 passing, plus a CI benchmark gate |
 | Per-run latency (deterministic, full 4 roles) | 4.9 – 5.5 s |
 
 ---

@@ -55,7 +55,7 @@ FalkorDB is the product, not the storage layer. Remove it and five core capabili
 4. Reasoning lives in the same graph. Hypothesis→Evidence→ToolCall→Session is a first-class provenance subgraph, so any claim can be replayed to the exact query behind it.
 5. Multi-tenancy is free: one graph per agency (pmph_ops, training_academy), so scoping is a connection parameter rather than row-level security. Each role-scoped MCP subprocess gets the tenant's FalkorDB connection explicitly.
 
-26 node labels, 40 relationship types; 4 agents × ~50 real MCP tool calls per run; 40 tests and a 3/3 correctness benchmark gate against a live FalkorDB in CI.
+26 node labels, 40 relationship types; 4 agents × ~50 real MCP tool calls per run; 48 tests and a 3/3 correctness benchmark gate against a live FalkorDB in CI.
 ```
 
 **Blog link** *(optional — best blog post wins AirPods 5)*
@@ -70,7 +70,7 @@ https://___________
 
 **What did you like about FalkorDB?**
 ```
-Three things. First, algorithms inline: label propagation and betweenness run as part of the query, so "the graph is the analysis" — no separate analytics store or library round-trip. Second, the Redis wire protocol made operations trivial — redis-cli works for healthchecks, CI spins up a FalkorDB service container in seconds, and existing Redis tooling just works. Third, graph-per-database gave us multi-tenancy almost for free: each tenant gets a named graph, and scoping is a connection parameter rather than a WHERE clause on every query. It also starts fast enough that the whole 40-test suite runs against a real graph offline in ~30 seconds — no mocks of the database layer anywhere in the project.
+Three things. First, algorithms inline: label propagation and betweenness run as part of the query, so "the graph is the analysis" — no separate analytics store or library round-trip. Second, the Redis wire protocol made operations trivial — redis-cli works for healthchecks, CI spins up a FalkorDB service container in seconds, and existing Redis tooling just works. Third, graph-per-database gave us multi-tenancy almost for free: each tenant gets a named graph, and scoping is a connection parameter rather than a WHERE clause on every query. It also starts fast enough that the whole 48-test suite runs against a real graph offline in ~30 seconds — no mocks of the database layer anywhere in the project.
 ```
 
 **What improvements would you like to see in FalkorDB?**

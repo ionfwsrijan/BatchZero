@@ -1,7 +1,7 @@
 # BatchZero
 
 [![CI](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml/badge.svg)](https://github.com/ionfwsrijan/BatchZero/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-40%20passing-brightgreen)](backend/tests)
+[![tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)](backend/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](backend/pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20SSE-009688)](backend/batchzero/api/app.py)
 [![React](https://img.shields.io/badge/UI-React%20%2B%20cytoscape-61dafb)](frontend)
@@ -39,7 +39,7 @@ behind it.
 | **Graph** | 26 labels · 40 relationship types · algorithms: betweenness, labelPropagation, SPpaths, WCC |
 | **Agents** | 4 role-scoped sessions in protocol order, ~50 real tool calls per run |
 | **Reproducible** | `python -m batchzero.demo.replay` → same answer, no API key |
-| **Tests** | 40 tests offline + benchmark gate in CI against a live FalkorDB |
+| **Tests** | 48 tests offline + benchmark gate in CI against a live FalkorDB |
 
 ---
 
@@ -283,8 +283,9 @@ RETURN h.statement, e.summary, tc.tool, tc.ms, s.role
 ## Quickstart
 
 Already have `make`? One line does steps 1–4 (`make falkordb install seed
-replay`), and `make api` serves the API + UI. `make verify` runs exactly what CI
-does — seed, full test suite, then the benchmark gate. Otherwise:
+replay`), and `make api` serves the API + UI. `make verify` mirrors CI's
+functional gate — seed, full test suite, then the benchmark gate — while
+`make lint` runs the same ruff rules CI checks first. Otherwise:
 
 ```bash
 # 1 — start FalkorDB (Redis protocol + FalkorDB Browser on :3000)
@@ -295,6 +296,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # Windows; `source .venv/bin/activate` on *nix
 pip install -e ".[dev]"
+ruff check .                          # lint gate (same rules as CI)
 
 # 3 — seed the synthetic Port Meridian fixture + indexes
 python -m batchzero.seed --reset
@@ -350,9 +352,10 @@ to wake (it reseeds itself on boot).
 - **Benchmark (reproducible)**: `python -m batchzero.demo.replay --benchmark 3`
   — exits non-zero if any run misses the source
 - **Verify like CI**: `make verify` (seed + `pytest` + benchmark gate)
+- **Lint like CI**: `make lint` (`ruff check .`)
 - **Live LLM mode**: `python -m batchzero.demo.replay --live` (falls back gracefully on 429)
 - **Run full API + UI**: `python -m batchzero.api.app` (`http://localhost:8000`)
-- **All tests**: `pytest -q` (40 passing, offline)
+- **All tests**: `pytest -q` (48 passing, offline)
 
 **Read next:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) (judge guide + rubric
 map) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagrams) ·
@@ -376,6 +379,34 @@ the same MCP tool calls against the same graph, fully offline.
 
 ---
 
+## API surface
+
+The same FastAPI app serves the UI and a small JSON/SSE API. Tenant-scoped
+endpoints accept `?tenant=` (or `tenant` in the body); names must match
+`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$` because they become FalkorDB graph keys.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/health` | liveness — always `200`, `ok` reflects the graph connection |
+| `GET` | `/api/ready` | readiness — `503` while FalkorDB is unreachable |
+| `GET` | `/api/config` | tenant, provider/model, roles, graph counts |
+| `GET` | `/api/cases?pathogen=` | recent cases for a pathogen |
+| `GET` | `/api/investigations` | investigations stored in the tenant graph |
+| `GET` | `/api/investigations/{inv_id}` | full state: hypotheses, evidence, tasks, recall |
+| `GET` | `/api/investigations/{inv_id}/graph` | provenance sub-graph (`hops` 1–6, `limit` ≤ 2000) |
+| `GET` | `/api/graph/summary` | node/relationship counts by label/type |
+| `GET` | `/api/agents/roles` | the four roles and their scoped tool-sets |
+| `POST` | `/api/search` | entity search (query capped at 200 chars) |
+| `POST` | `/api/seed` | reset + reseed a tenant (used by the demo) |
+| `POST` | `/api/investigations/stream` | run an investigation, streamed as SSE |
+| `POST` | `/api/investigations/{inv_id}/chat/stream` | follow-up question, streamed as SSE |
+
+Request bodies are bounded (`message` ≤ 4000 chars, `title` ≤ 200) and the
+`roles` list is validated against the orchestrator's known roles, so a typo
+returns `422` instead of silently running a partial investigation.
+
+---
+
 ## Tests
 
 ```bash
@@ -389,11 +420,14 @@ pytest -q
 | `test_mcp.py` | role-scoped tool discovery over a real stdio MCP subprocess + provenance logging |
 | `test_agent.py` | the full four-role run: main hypothesis confirmed, decoy refuted, evidence tool-attributed, recall + tasks filed |
 | `test_api.py` | read endpoints, input validation, the readiness probe, and the SSE investigation stream |
+| `test_db.py` | result normalization: nodes/edges and temporal values become JSON-friendly data |
 | `test_isolation.py` | cross-tenant writes leave the other graph untouched; seeding is deterministic |
 
-All 40 tests run offline against a live FalkorDB (the LLM is pinned to the
-deterministic plan). CI also runs `--benchmark 2` as a gate: it fails the build
-if a run does not confirm `MG-4417` and refute `LET-2210`.
+All 48 tests run offline against a live FalkorDB (the LLM is pinned to the
+deterministic plan). CI first runs `ruff check .`, then the suite on **Python
+3.11 and 3.12** (the pyproject floor and the deploy image), and finally
+`--benchmark 2` as a gate: it fails the build if a run does not confirm
+`MG-4417` and refute `LET-2210`.
 
 ---
 
@@ -477,7 +511,7 @@ batchzero/
 ├─ deploy/                # single-container image + entrypoint (FalkorDB + API + UI)
 ├─ render.yaml            # hosted-demo blueprint (free Render web service)
 ├─ Makefile               # one-word targets for common tasks
-├─ .github/workflows/ci.yml  # CI: backend tests + frontend build
+├─ .github/workflows/ci.yml  # CI: lint + tests (py3.11/3.12) + benchmark + frontend + image
 └─ docker-compose.yml     # FalkorDB (+ Browser) for local development
 ```
 
